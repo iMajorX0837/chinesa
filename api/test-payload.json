@@ -1,0 +1,7 @@
+{
+  "amount": 5,
+  "payerName": "Nome do cliente",
+  "payerDocument": "12345678909",
+  "transactionId": "BL12345678",
+  "description": "Pagamento do cliente TAL"
+}

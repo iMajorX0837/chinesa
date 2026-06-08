@@ -1,0 +1,2 @@
+/api/create-transaction.php /.netlify/functions/create-transaction 200
+/api/create-transaction /.netlify/functions/create-transaction 200

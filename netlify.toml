@@ -1,0 +1,15 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/create-transaction.php"
+  to = "/.netlify/functions/create-transaction"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/create-transaction"
+  to = "/.netlify/functions/create-transaction"
+  status = 200
+  force = true

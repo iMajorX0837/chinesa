@@ -17,7 +17,11 @@
     const btnCopyPix = document.getElementById('btnCopyPix');
 
     function getTransactionApiUrl() {
-        return '/api/create-transaction.php';
+        var host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') {
+            return '/php-api/create-transaction.php';
+        }
+        return '/api/create-transaction';
     }
 
     function formatMoney(value) {

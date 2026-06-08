@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/create-transaction.php",
+      "destination": "/api/create-transaction"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ services:
       - "8088:80"
     volumes:
       - .:/var/www/html
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini
     environment:
       DB_HOST: db
       DB_USER: ${DB_USER:-china}

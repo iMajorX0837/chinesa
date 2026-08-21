@@ -1,4 +1,9 @@
-<?php include_once __DIR__ . '/../l.php'; ?>
+<?php
+if (ob_get_level() === 0) {
+    ob_start();
+}
+include_once __DIR__ . '/../l.php';
+?>
 <!DOCTYPE html>
 <html lang="en" dir="ltr" data-startbar="dark" data-bs-theme="dark">
 <script>

@@ -28,12 +28,12 @@ services:
       TZ: America/Sao_Paulo
     volumes:
       - china_db:/var/lib/mysql
-      - ./china_full.sql:/docker-entrypoint-initdb.d/01-china.sql:ro
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 12
+      start_period: 30s
 
 volumes:
   china_db:

@@ -36,19 +36,23 @@ function validar_2fa_admin($codigo_2fa)
     $result = $qry->get_result();
     $admin = $result->fetch_assoc();
     
-    if ($admin && password_verify($codigo_2fa, $admin['2fa'])) {
-        return true;
+    if (!$admin || empty($admin['2fa'])) {
+        return false;
     }
-    return false;
+
+    $stored = $admin['2fa'];
+    $codigo_2fa = trim($codigo_2fa);
+
+    if (strpos($stored, '$2y$') === 0 || strpos($stored, '$2a$') === 0 || strpos($stored, '$2b$') === 0) {
+        return password_verify($codigo_2fa, $stored);
+    }
+
+    return hash_equals((string) $stored, $codigo_2fa);
 }
 
 function get_gateways_config()
 {
     global $mysqli;
-    
-    $GreePayQuery = "SELECT * FROM greepay WHERE id = 1";
-    $GreePayResult = mysqli_query($mysqli, $GreePayQuery);
-    $GreePayConfig = mysqli_fetch_assoc($GreePayResult);
     
     $expfypayQuery = "SELECT * FROM expfypay WHERE id = 1";
     $expfypayResult = mysqli_query($mysqli, $expfypayQuery);
@@ -71,7 +75,6 @@ function get_gateways_config()
     $InpagamentosConfig = mysqli_fetch_assoc($InpagamentosResult);
 
     return [
-        'greepay' => $GreePayConfig,
         'expfypay' => $expfypayConfig,
         'bspay' => $bspayConfig,
         'aurenpay' => $AurenPayConfig,
@@ -93,9 +96,7 @@ function update_gateway_status($selectedGateway)
     $mysqli->query("UPDATE inpagamentos SET ativo = 0 WHERE id = 1");
 
     // Ativar o gateway selecionado
-    if ($selectedGateway === 'GreePay') {
-        $mysqli->query("UPDATE greepay SET ativo = 1 WHERE id = 1");
-    } elseif ($selectedGateway === 'ExpfyPay') {
+    if ($selectedGateway === 'ExpfyPay') {
         $mysqli->query("UPDATE expfypay SET ativo = 1 WHERE id = 1");
     } elseif ($selectedGateway === 'BSPay') {
         $mysqli->query("UPDATE bspay SET ativo = 1 WHERE id = 1");
@@ -112,11 +113,7 @@ function update_config($data)
 {
     global $mysqli;
 
-    if ($data['gateway'] === 'GreePay') {
-        // GreePay não permite alterar URL
-        $qry = $mysqli->prepare("UPDATE greepay SET client_id = ?, client_secret = ? WHERE id = 1");
-        $qry->bind_param("ss", $data['client_id'], $data['client_secret']);
-    } elseif ($data['gateway'] === 'ExpfyPay') {
+    if ($data['gateway'] === 'ExpfyPay') {
         $qry = $mysqli->prepare("UPDATE expfypay SET url = ?, client_id = ?, client_secret = ? WHERE id = 1");
         $qry->bind_param("sss", $data['url'], $data['client_id'], $data['client_secret']);
     } elseif ($data['gateway'] === 'BSPay') {
@@ -131,6 +128,8 @@ function update_config($data)
     } elseif ($data['gateway'] === 'Inpagamentos') {
         $qry = $mysqli->prepare("UPDATE inpagamentos SET url = ?, public_key = ?, secret_key = ? WHERE id = 1");
         $qry->bind_param("sss", $data['url'], $data['client_id'], $data['client_secret']);
+    } else {
+        return false;
     }
 
     $success = $qry->execute();
@@ -148,10 +147,14 @@ function toggle_gateway_status($gateway, $status)
     $status = (int)$status;
     $table = strtolower($gateway);
     
+    if ($gateway === 'GreePay') {
+        return false;
+    }
+
     // Mapeamento de nomes para tabelas se necessário
     if ($gateway === 'BSPay') $table = 'bspay';
     if ($gateway === 'Inpagamentos') $table = 'inpagamentos';
-    // Outros já são iguais (greepay, expfypay, aurenpay, versell)
+    // Outros já são iguais (expfypay, aurenpay, versell)
 
     $stmt = $mysqli->prepare("UPDATE $table SET ativo = ? WHERE id = 1");
     if ($stmt) {
@@ -163,24 +166,20 @@ function toggle_gateway_status($gateway, $status)
 
 function get_active_gateway($mysqli)
 {
-    $resultGreePay = $mysqli->query("SELECT ativo FROM greepay WHERE id = 1");
     $resultExpfyPay = $mysqli->query("SELECT ativo FROM expfypay WHERE id = 1");
     $resultBSPay = $mysqli->query("SELECT ativo FROM bspay WHERE id = 1");
     $resultAurenPay = $mysqli->query("SELECT ativo FROM aurenpay WHERE id = 1");
     $resultVersell = $mysqli->query("SELECT ativo FROM versell WHERE id = 1");
     $resultInpagamentos = $mysqli->query("SELECT ativo FROM inpagamentos WHERE id = 1");
 
-    if ($resultGreePay && $resultExpfyPay && $resultBSPay && $resultAurenPay) {
-        $greepay = $resultGreePay->fetch_assoc();
+    if ($resultExpfyPay && $resultBSPay && $resultAurenPay) {
         $expfypay = $resultExpfyPay->fetch_assoc();
         $bspay = $resultBSPay->fetch_assoc();
         $AurenPay = $resultAurenPay->fetch_assoc();
         $Versell = $resultVersell ? $resultVersell->fetch_assoc() : ['ativo' => 0];
         $Inpagamentos = $resultInpagamentos ? $resultInpagamentos->fetch_assoc() : ['ativo' => 0];
 
-        if ($greepay['ativo'] == 1) {
-            return 'GreePay';
-        } elseif ($expfypay['ativo'] == 1) {
+        if ($expfypay['ativo'] == 1) {
             return 'ExpfyPay';
         } elseif ($bspay['ativo'] == 1) {
             return 'BSPay/PixUP';
@@ -265,6 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_gateway'])) {
 }
 
 $config = get_gateways_config();
+$mysqli->query("UPDATE greepay SET ativo = 0 WHERE id = 1");
 $activeGateway = get_active_gateway($mysqli);
 ?>
 
@@ -322,88 +322,6 @@ $activeGateway = get_active_gateway($mysqli);
                                 <?php endif; ?>
 
                                 <div class="gateways-grid-top">
-                                    
-
-                                    <div class="gateway-card">
-                                        <div class="gateway-header">
-                                            <div class="gateway-title">
-                                                <i class="ti ti-bolt text-warning"></i>
-                                                <div>
-                                                    <h5 class="gateway-name">GreePay</h5>
-                                                    <p class="gateway-description">Gateway de pagamento GreePay</p>
-                                                </div>
-                                            </div>
-                                            <div class="gateway-status <?= ($activeGateway === 'GreePay') ? 'active' : 'inactive' ?>"><?= ($activeGateway === 'GreePay') ? admin_t('status_active') : admin_t('status_inactive') ?></div>
-                                        </div>
-
-                                        <!-- Controle de Ativação -->
-                                        <div class="px-3 pt-3">
-                                            <form method="POST" class="d-flex align-items-center">
-                                                <input type="hidden" name="toggle_gateway" value="1">
-                                                <input type="hidden" name="gateway_name" value="GreePay">
-                                                <input type="hidden" name="new_status" value="<?= ($config['greepay']['ativo'] == 1) ? '0' : '1' ?>">
-                                                
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" role="switch" id="switchGreePay" 
-                                                        <?= ($config['greepay']['ativo'] == 1) ? 'checked' : '' ?> 
-                                                        onchange="this.form.submit()">
-                                                    <label class="form-check-label" for="switchGreePay">
-                                                        <?= ($config['greepay']['ativo'] == 1) ? admin_t('status_active') : admin_t('status_inactive') ?>
-                                                    </label>
-                                                </div>
-                                            </form>
-                                        </div>
-
-                                        <div class="gateway-form">
-                                            <form method="POST" action="" id="formGreePay">
-                                                <input type="hidden" name="gateway" value="GreePay">
-                                                <div class="mb-3">
-                                                    <label class="form-label"><i class="ti ti-key"></i>Client ID</label>
-                                                    <div class="input-group">
-                                                        <input type="password" id="greepay_client_id" name="client_id" class="form-control <?= !$credenciais_desbloqueadas ? 'credencial-bloqueada' : '' ?>" value="<?= $config['greepay']['client_id'] ?>" required <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>>
-                                                        <?php if ($credenciais_desbloqueadas): ?>
-                                                            <span class="input-group-text" style="cursor: pointer;" onclick="togglePassword('greepay_client_id', this)"><i class="ti ti-eye"></i></span>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label"><i class="ti ti-shield-lock"></i>Client Secret</label>
-                                                    <div class="input-group">
-                                                        <input type="password" id="greepay_client_secret" name="client_secret" class="form-control <?= !$credenciais_desbloqueadas ? 'credencial-bloqueada' : '' ?>" value="<?= $config['greepay']['client_secret'] ?>" required <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>>
-                                                        <?php if ($credenciais_desbloqueadas): ?>
-                                                            <span class="input-group-text" style="cursor: pointer;" onclick="togglePassword('greepay_client_secret', this)"><i class="ti ti-eye"></i></span>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label"><i class="ti ti-link"></i>Endpoint</label>
-                                                    <input type="text" name="url" class="form-control" value="<?= $config['greepay']['url'] ?>" readonly disabled>
-                                                    <small class="text-muted"><?= admin_t('gateway_greepay_fixed_url') ?></small>
-                                                    
-                                                    <!-- LOGO + BOTÃO -->
-                                                <div class="mt-3 d-flex align-items-center justify-content-center gap-3">
-                                                    <img
-                                                        src="https://greepay.com.br/logo/logo.png"
-                                                        alt="Logo GreePay"
-                                                     style="height:40px;width:auto;"
-                                                    >
-                                    
-                                                    <a href="https://greepay.com.br/register" target="_blank" class="btn btn-outline-primary">
-                                                        Ainda não tem conta? Clique no aqui e faça seu cadastro
-                                                    </a>
-                                                </div>
-                                                    
-                                                </div>
-                                                
-                                                
-                                                
-                                                
-                                                
-                                                <button type="button" class="save-btn" onclick="abrirModal2FASalvar('GreePay')" <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>><i class="ti ti-device-floppy me-1"></i><?= admin_t('gateway_save_button_prefix') ?> GreePay</button>
-                                            </form>
-                                        </div>
-                                    </div>
-
                                     <div class="gateway-card">
                                         <div class="gateway-header">
                                             <div class="gateway-title">
@@ -463,6 +381,72 @@ $activeGateway = get_active_gateway($mysqli);
                                                     </select>
                                                 </div>
                                                 <button type="button" class="save-btn" onclick="abrirModal2FASalvar('BSPay')" <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>><i class="ti ti-device-floppy me-1"></i><?= admin_t('gateway_save_button_prefix') ?> BSPay/PixUP</button>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <div class="gateway-card">
+                                        <div class="gateway-header">
+                                            <div class="gateway-title">
+                                                <i class="ti ti-currency-dollar text-success"></i>
+                                                <div>
+                                                    <h5 class="gateway-name">ExpfyPay</h5>
+                                                    <p class="gateway-description"><?= admin_t('gateway_expfypay_desc') ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="gateway-status <?= ($activeGateway === 'ExpfyPay') ? 'active' : 'inactive' ?>"><?= ($activeGateway === 'ExpfyPay') ? admin_t('status_active') : admin_t('status_inactive') ?></div>
+                                        </div>
+
+                                        <div class="px-3 pt-3">
+                                            <form method="POST" class="d-flex align-items-center">
+                                                <input type="hidden" name="toggle_gateway" value="1">
+                                                <input type="hidden" name="gateway_name" value="ExpfyPay">
+                                                <input type="hidden" name="new_status" value="<?= (($config['expfypay']['ativo'] ?? 0) == 1) ? '0' : '1' ?>">
+                                                
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="switchExpfyPay" 
+                                                        <?= (($config['expfypay']['ativo'] ?? 0) == 1) ? 'checked' : '' ?> 
+                                                        onchange="this.form.submit()">
+                                                    <label class="form-check-label" for="switchExpfyPay">
+                                                        <?= (($config['expfypay']['ativo'] ?? 0) == 1) ? admin_t('status_active') : admin_t('status_inactive') ?>
+                                                    </label>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <div class="gateway-form">
+                                            <form method="POST" action="" id="formExpfyPay">
+                                                <input type="hidden" name="gateway" value="ExpfyPay">
+                                                <div class="mb-3">
+                                                    <label class="form-label"><i class="ti ti-key"></i>Client ID (Public Key)</label>
+                                                    <div class="input-group">
+                                                        <input type="password" id="expfypay_client_id" name="client_id" class="form-control <?= !$credenciais_desbloqueadas ? 'credencial-bloqueada' : '' ?>" value="<?= $config['expfypay']['client_id'] ?? '' ?>" required <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>>
+                                                        <?php if ($credenciais_desbloqueadas): ?>
+                                                            <span class="input-group-text" style="cursor: pointer;" onclick="togglePassword('expfypay_client_id', this)"><i class="ti ti-eye"></i></span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label"><i class="ti ti-shield-lock"></i>Client Secret (Secret Key)</label>
+                                                    <div class="input-group">
+                                                        <input type="password" id="expfypay_client_secret" name="client_secret" class="form-control <?= !$credenciais_desbloqueadas ? 'credencial-bloqueada' : '' ?>" value="<?= $config['expfypay']['client_secret'] ?? '' ?>" required <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>>
+                                                        <?php if ($credenciais_desbloqueadas): ?>
+                                                            <span class="input-group-text" style="cursor: pointer;" onclick="togglePassword('expfypay_client_secret', this)"><i class="ti ti-eye"></i></span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label"><i class="ti ti-link"></i>Endpoint</label>
+                                                    <?php $expfyUrl = $config['expfypay']['url'] ?? ''; ?>
+                                                    <select name="url" class="form-select" required <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>>
+                                                        <option value="https://api.expfypay.com" <?= $expfyUrl === 'https://api.expfypay.com' ? 'selected' : '' ?>>ExpfyPay (api.expfypay.com)</option>
+                                                        <option value="https://pro.expfypay.com" <?= $expfyUrl === 'https://pro.expfypay.com' ? 'selected' : '' ?>>ExpfyPay Pro (pro.expfypay.com)</option>
+                                                        <?php if ($expfyUrl !== '' && !in_array($expfyUrl, ['https://api.expfypay.com', 'https://pro.expfypay.com'], true)): ?>
+                                                            <option value="<?= htmlspecialchars($expfyUrl) ?>" selected><?= htmlspecialchars($expfyUrl) ?></option>
+                                                        <?php endif; ?>
+                                                    </select>
+                                                </div>
+                                                <button type="button" class="save-btn" onclick="abrirModal2FASalvar('ExpfyPay')" <?= !$credenciais_desbloqueadas ? 'disabled' : '' ?>><i class="ti ti-device-floppy me-1"></i><?= admin_t('gateway_save_button_prefix') ?> ExpfyPay</button>
                                             </form>
                                         </div>
                                     </div>
@@ -571,8 +555,6 @@ $activeGateway = get_active_gateway($mysqli);
             let form;
             if (gatewayAtual === 'Versell') {
                 form = document.getElementById('formVersell');
-            } else if (gatewayAtual === 'GreePay') {
-                form = document.getElementById('formGreePay');
             } else if (gatewayAtual === 'ExpfyPay') {
                 form = document.getElementById('formExpfyPay');
             } else if (gatewayAtual === 'BSPay') {

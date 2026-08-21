@@ -13,7 +13,7 @@ require_once DASH . "/services/pega-ip.php";
 require_once DASH . "/services/ip-crawler.php";
 $csrf = new CSRF_Protect();
 $ads_tipo = !empty($_GET['utm_ads']) ? PHP_SEGURO($_GET['utm_ads']) : null;
-$url_atual = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+$url_atual = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http") . "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
 $referencia = $_SERVER['HTTP_REFERER'] ?? $url_atual;
 $data_hoje = date("Y-m-d");
 $hora_hoje = date("H:i:s");

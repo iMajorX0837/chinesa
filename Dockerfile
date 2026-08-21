@@ -8,12 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) mysqli pdo_mysql gd zip opcache \
-    && a2enmod rewrite headers deflate \
-    && echo "ServerName localhost" >> /etc/apache2/apache2.conf \
+    && a2enmod rewrite headers deflate setenvif \
+    && echo "ServerName 993pix.com" >> /etc/apache2/apache2.conf \
     && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-custom.ini
+COPY docker/apache-proxy.conf /etc/apache2/conf-available/apache-proxy.conf
+RUN a2enconf apache-proxy
 
 WORKDIR /var/www/html
 COPY . /var/www/html

@@ -2,6 +2,12 @@
 date_default_timezone_set("America/Sao_Paulo");
 
 if (!defined('SITE_URL')) {
+    $fwdProto = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    if (strpos($fwdProto, 'https') === 0) {
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['SERVER_PORT'] = 443;
+        $_SERVER['REQUEST_SCHEME'] = 'https';
+    }
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) ? 'https://' : 'http://';
     $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
     define('SITE_URL', $protocol . $host);

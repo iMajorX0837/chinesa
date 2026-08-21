@@ -80,6 +80,7 @@ header('Referrer-Policy: no-referrer');
 header('Strict-Transport-Security: max-age=63072000; includeSubDomains; preload');
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $originAllowed = in_array($origin, $dominios_lista, true)
+    || ($origin !== '' && rtrim($origin, '/') === rtrim((string)$url_base, '/'))
     || preg_match('#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin) === 1;
 if ($origin !== '' && $originAllowed) {
     header('Access-Control-Allow-Origin: ' . $origin);

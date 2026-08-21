@@ -9,10 +9,10 @@ if (!defined('SITE_URL')) {
 
 if (!defined('DATABASE_LOADED')) {
     $bd = array(
-        'local' => 'localhost',
-        'usuario' => 'root',
-        'senha' => '',
-        'banco' => 'china'
+        'local'   => getenv('DB_HOST') ?: 'localhost',
+        'usuario' => getenv('DB_USER') ?: 'root',
+        'senha'   => getenv('DB_PASS') !== false ? getenv('DB_PASS') : '',
+        'banco'   => getenv('DB_NAME') ?: 'china'
     );
 
     // Try connecting with configured credentials

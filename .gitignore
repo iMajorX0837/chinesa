@@ -2,6 +2,7 @@
 errorlog.log
 *.log
 .user.ini
+.env
 
 # Dump com credenciais e dados de usuários
 china_full.sql

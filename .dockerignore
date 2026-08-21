@@ -1,0 +1,8 @@
+.git
+.gitignore
+.env
+.env.example
+errorlog.log
+*.log
+china_full.sql
+agent-transcripts

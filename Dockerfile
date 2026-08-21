@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && a2enmod rewrite headers deflate setenvif \
     && echo "ServerName 993pix.com" >> /etc/apache2/apache2.conf \
     && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf \
+    && sed -i 's|^Alias /icons/|# Alias /icons/|' /etc/apache2/mods-available/alias.conf \
+    && printf '\nEnableSendfile Off\nEnableMMAP Off\n' >> /etc/apache2/apache2.conf \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-custom.ini

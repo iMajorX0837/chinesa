@@ -1,0 +1,7 @@
+# Logs e ambiente local
+errorlog.log
+*.log
+.user.ini
+
+# Dump com credenciais e dados de usuários
+china_full.sql

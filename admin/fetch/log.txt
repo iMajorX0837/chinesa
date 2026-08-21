@@ -1,0 +1,24 @@
+[2026-02-24 00:03:52] Recebendo dados via POST.
+[2026-02-24 00:03:52] Dados recebidos: Array
+(
+    [user_id] => 728991276
+    [adicionar] => 2222222222
+    [remover] => 0
+)
+
+[2026-02-24 00:03:52] Saldo atual do usuário: 0.50
+[2026-02-24 00:03:53] Log de adição de saldo registrado para o usuário 728991276: 2222222222 em 2026-02-24 00:03:52
+[2026-02-24 00:03:53] Adicionando 2222222222 ao saldo do usuário 728991276. Novo saldo: 2222222222.5
+[2026-02-24 00:03:53] Saldo atualizado com sucesso para o usuário 728991276.
+[2026-08-21 16:28:12] Recebendo dados via POST.
+[2026-08-21 16:28:12] Dados recebidos: Array
+(
+    [user_id] => 142393923
+    [adicionar] => 1000
+    [remover] => 0
+)
+
+[2026-08-21 16:28:12] Saldo atual do usuário: 0.37
+[2026-08-21 16:28:12] Log de adição de saldo registrado para o usuário 142393923: 1000 em 2026-08-21 16:28:12
+[2026-08-21 16:28:12] Adicionando 1000 ao saldo do usuário 142393923. Novo saldo: 1000.37
+[2026-08-21 16:28:12] Saldo atualizado com sucesso para o usuário 142393923.

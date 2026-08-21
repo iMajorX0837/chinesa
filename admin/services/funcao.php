@@ -8,15 +8,91 @@ $pasta_url = '/';
 // Função para detectar se a conexão é HTTPS
 function pega_http_https()
 {
-    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
+    $fwd = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    if (strpos($fwd, 'https') !== false) {
+        return 'https';
+    }
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        return 'https';
+    }
+    if (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) {
+        return 'https';
+    }
+    return 'http';
 }
 
-// Função para gerar a URL base do sistema
+function host_eh_local($host)
+{
+    $host = strtolower(preg_replace('/:\d+$/', '', (string)$host));
+    return $host === '' || $host === 'localhost' || $host === '127.0.0.1' || $host === '::1';
+}
+
 function url_sistema()
 {
-    global $pasta_url;
+    global $pasta_url, $mysqli;
+
+    $candidates = [];
+
+    $envUrl = trim((string)(getenv('SITE_URL') ?: ''));
+    if ($envUrl !== '') {
+        $candidates[] = $envUrl;
+    }
+
+    $envDomain = trim((string)(getenv('SITE_DOMAIN') ?: ''));
+    if ($envDomain !== '') {
+        $candidates[] = 'https://' . preg_replace('#^https?://#i', '', $envDomain);
+    }
+
+    if (isset($mysqli) && $mysqli instanceof mysqli) {
+        $res = @$mysqli->query("SELECT url, nome FROM config WHERE id = 1 LIMIT 1");
+        if ($res && $row = $res->fetch_assoc()) {
+            if (!empty($row['url'])) {
+                $candidates[] = $row['url'];
+            }
+            $nome = trim((string)($row['nome'] ?? ''));
+            if ($nome !== '' && preg_match('/^[a-z0-9.-]+\.[a-z]{2,}$/i', $nome)) {
+                $candidates[] = 'https://' . $nome;
+            }
+        }
+    }
+
+    $origin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
+    if ($origin !== '') {
+        $candidates[] = $origin;
+    }
+
+    $xfHost = trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_HOST'] ?? ''))[0]);
+    if ($xfHost !== '') {
+        $xfProto = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'https'));
+        $proto = (strpos($xfProto, 'https') !== false) ? 'https' : 'http';
+        $candidates[] = $proto . '://' . $xfHost;
+    }
+
+    $httpHost = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($httpHost !== '') {
+        $candidates[] = pega_http_https() . '://' . $httpHost;
+    }
+
+    $candidates[] = 'https://993pix.com';
+
+    foreach ($candidates as $url) {
+        $url = trim($url);
+        if ($url === '') {
+            continue;
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . $url;
+        }
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!$host || host_eh_local($host)) {
+            continue;
+        }
+        $host = strtolower($host);
+        return rtrim('https://' . $host . $pasta_url, '/');
+    }
+
     $protocol = pega_http_https();
-    $system_url = $protocol . "://" . filter_var($_SERVER['HTTP_HOST'], FILTER_SANITIZE_URL) . $pasta_url;
+    $system_url = $protocol . "://" . filter_var($httpHost ?: 'localhost', FILTER_SANITIZE_URL) . $pasta_url;
     return rtrim($system_url, '/');
 }
 

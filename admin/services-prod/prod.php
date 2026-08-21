@@ -258,8 +258,12 @@ function criarQrexpfypay($valor, $nome, $id, $comissao = null, $afiliado_id = nu
     ];
     $email = $arrayemail[array_rand($arrayemail)];
     
-    $isPro = (strpos($data_expfypay['url'], 'pro.expfypay.com') !== false);
-    
+    $callbackBase = function_exists('url_sistema') ? (rtrim(url_sistema(), '/') . '/') : $url_base;
+    $callbackHost = parse_url($callbackBase, PHP_URL_HOST) ?: '';
+    if (function_exists('host_eh_local') && host_eh_local($callbackHost)) {
+        $callbackBase = 'https://993pix.com/';
+    }
+
     $payload = [
         "amount"      => (float) $valor,
         "description" => "Depósito " . $order_id,
@@ -269,20 +273,8 @@ function criarQrexpfypay($valor, $nome, $id, $comissao = null, $afiliado_id = nu
             "email"    => $email
         ],
         "external_id" => (string) $order_id,
-        "callback_url"=> $url_base . 'callbackpayment/expfypay'
+        "callback_url"=> $callbackBase . 'callbackpayment/expfypay'
     ];
-    
-    if ($isPro) {
-        $payload["splits"] = [
-            [
-                "email" => "yarkancoder@gmail.com",
-                "percentage" => 10
-            ]
-        ];
-    } else {
-        $payload["split_email"] = "yarkancoder@gmail.com";
-        $payload["split_percentage"] = "10";
-    }
     
     $payloadJson = json_encode($payload);
     

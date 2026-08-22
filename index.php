@@ -157,6 +157,7 @@ $assetVersion = time();
     <?php if (!empty($config['facebookads'])): ?>
     <!-- Facebook Pixel Code -->
     <script>
+    window.fbPixelId = '<?= htmlspecialchars($config['facebookads'], ENT_QUOTES) ?>';
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};

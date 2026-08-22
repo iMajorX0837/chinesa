@@ -28,9 +28,55 @@ function get_afiliados_config()
     return mysqli_fetch_assoc($result);
 }
 
+function ensure_pay_type_fixed_amount_column()
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    $ensured = true;
+
+    global $mysqli;
+    $res = @$mysqli->query("SHOW COLUMNS FROM pay_type_sub_list LIKE 'fixed_amount'");
+    if (!$res) {
+        return;
+    }
+    $col = $res->fetch_assoc();
+    if ($col && stripos((string) $col['Type'], 'decimal') !== false) {
+        try {
+            $mysqli->query("ALTER TABLE `pay_type_sub_list` MODIFY `fixed_amount` VARCHAR(512) DEFAULT NULL");
+        } catch (Throwable $e) {
+            error_log('ensure_pay_type_fixed_amount_column: ' . $e->getMessage());
+        }
+    }
+}
+
+function normalize_fixed_amount($raw)
+{
+    $raw = trim((string) $raw);
+    $raw = trim($raw, "()[]{}");
+    $parts = preg_split('/\s*,\s*/', $raw);
+    $values = [];
+    foreach ($parts as $part) {
+        $part = trim($part);
+        if ($part === '' || !is_numeric($part)) {
+            continue;
+        }
+        $num = (float) $part;
+        if ($num < 0) {
+            continue;
+        }
+        $values[] = (floor($num) == $num)
+            ? (string) intval($num)
+            : rtrim(rtrim(sprintf('%.2f', $num), '0'), '.');
+    }
+    return implode(',', $values);
+}
+
 function get_payment_methods()
 {
     global $mysqli;
+    ensure_pay_type_fixed_amount_column();
     $qry = "SELECT * FROM pay_type_sub_list ORDER BY sort_order ASC";
     $result = mysqli_query($mysqli, $qry);
     $data = [];
@@ -69,36 +115,49 @@ function update_config($data)
 function update_payment_method($id, $data)
 {
     global $mysqli;
-    
-    // Calculate min/max from fixed_amount
-    $amounts = explode(',', $data['fixed_amount']);
-    $min = floatval($amounts[0]);
-    $max = floatval(end($amounts));
-    
-    $qry = $mysqli->prepare("UPDATE pay_type_sub_list SET 
-        name = ?, 
-        tags = ?, 
-        status = ?, 
-        description = ?, 
-        fixed_amount = ?, 
-        min_amount = ?, 
-        max_amount = ?, 
-        bonus_active = ?
-        WHERE id = ?");
-        
-    $qry->bind_param(
-        "ssissddii",
-        $data['name'],
-        $data['tags'],
-        $data['status'],
-        $data['description'],
-        $data['fixed_amount'],
-        $min,
-        $max,
-        $data['bonus_active'],
-        $id
-    );
-    return $qry->execute();
+
+    ensure_pay_type_fixed_amount_column();
+
+    $fixed = normalize_fixed_amount($data['fixed_amount'] ?? '');
+    $amounts = $fixed === '' ? [] : explode(',', $fixed);
+    $min = !empty($amounts) ? floatval($amounts[0]) : 0;
+    $max = !empty($amounts) ? floatval(end($amounts)) : 0;
+
+    try {
+        $qry = $mysqli->prepare("UPDATE pay_type_sub_list SET 
+            name = ?, 
+            tags = ?, 
+            status = ?, 
+            description = ?, 
+            fixed_amount = ?, 
+            min_amount = ?, 
+            max_amount = ?, 
+            bonus_active = ?
+            WHERE id = ?");
+
+        if (!$qry) {
+            return false;
+        }
+
+        $qry->bind_param(
+            "ssissddii",
+            $data['name'],
+            $data['tags'],
+            $data['status'],
+            $data['description'],
+            $fixed,
+            $min,
+            $max,
+            $data['bonus_active'],
+            $id
+        );
+        $ok = $qry->execute();
+        $qry->close();
+        return $ok;
+    } catch (Throwable $e) {
+        error_log('update_payment_method: ' . $e->getMessage());
+        return false;
+    }
 }
 
 $toastType = null;
@@ -306,7 +365,7 @@ $paymentMethods = get_payment_methods();
                                             
                                             <div class="col-12">
                                                 <label class="form-label"><?= admin_t('label_fixed_values') ?></label>
-                                                <textarea class="form-control" name="payment[<?= $pay['id'] ?>][fixed_amount]" rows="2"><?= $pay['fixed_amount'] ?></textarea>
+                                                <textarea class="form-control" name="payment[<?= $pay['id'] ?>][fixed_amount]" rows="2"><?= htmlspecialchars((string) ($pay['fixed_amount'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
                                                 <div class="form-text"><?= admin_t('help_fixed_values') ?></div>
                                             </div>
                                             

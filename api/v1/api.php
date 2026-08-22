@@ -2672,7 +2672,11 @@ if ($path === '/api/frontend/trpc/activity.list' || $path === '/api/frontend/trp
 );
     $finalList = [];
     $processedIds = [];
+    $agencyActivity = null;
     foreach ($activityList as $activity) {
+        if (($activity['type'] ?? '') === 'Agency') {
+            $agencyActivity = $activity;
+        }
         if (isset($dbPromos[$activity['id']])) {
             $row = $dbPromos[$activity['id']];
             if ($row['status'] == 1) {
@@ -2687,6 +2691,30 @@ if ($path === '/api/frontend/trpc/activity.list' || $path === '/api/frontend/trp
                 $processedIds[$activity['id']] = true;
             }
         }
+    }
+    $hasAgency = false;
+    foreach ($finalList as $item) {
+        if (($item['type'] ?? '') === 'Agency') {
+            $hasAgency = true;
+            break;
+        }
+    }
+    if (!$hasAgency && $agencyActivity !== null) {
+        if (isset($dbPromos[$agencyActivity['id']])) {
+            $row = $dbPromos[$agencyActivity['id']];
+            if (!empty($row['titulo'])) {
+                $agencyActivity['name'] = $row['titulo'];
+            }
+            $imgUrl = $row['img'] ?? '';
+            if (!empty($imgUrl) && strpos($imgUrl, 'http') !== 0) {
+                $imgUrl = $WG_BUCKET_SITE . '/uploads/' . $imgUrl;
+            }
+            if (!empty($imgUrl)) {
+                $agencyActivity['bannerBackground'] = $imgUrl;
+            }
+        }
+        array_unshift($finalList, $agencyActivity);
+        $processedIds[$agencyActivity['id']] = true;
     }
     foreach ($dbPromos as $id => $row) {
         if (!isset($processedIds[$id]) && $row['status'] == 1) {

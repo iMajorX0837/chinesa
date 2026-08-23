@@ -25,10 +25,20 @@ if ($_SESSION['data_adm']['status'] != '1') {
     exit();
 }
 
+function ensure_facebookads2_column()
+{
+    global $mysqli;
+    $check = $mysqli->query("SHOW COLUMNS FROM config LIKE 'facebookads2'");
+    if ($check && $check->num_rows === 0) {
+        $mysqli->query("ALTER TABLE config ADD facebookads2 VARCHAR(64) DEFAULT NULL AFTER facebookads");
+    }
+}
+
 # Função para buscar os dados atuais da tabela afiliados_config
 function get_afiliados_config()
 {
     global $mysqli;
+    ensure_facebookads2_column();
     $qry = "SELECT * FROM config WHERE id=1";
     $result = mysqli_query($mysqli, $qry);
     return mysqli_fetch_assoc($result);
@@ -38,14 +48,17 @@ function get_afiliados_config()
 function update_config($data)
 {
     global $mysqli;
+    ensure_facebookads2_column();
     $qry = $mysqli->prepare("UPDATE config SET 
         facebookads = ?, 
+        facebookads2 = ?,
         googleAnalytics = ?
         WHERE id = 1");
 
     $qry->bind_param(
-        "ss",
+        "sss",
         $data['facebookads'],
+        $data['facebookads2'],
         $data['googleads'],
     );
     return $qry->execute();
@@ -59,7 +72,8 @@ $toastMessage = ''; // Variável para definir a mensagem do Toast
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $data = [
         'googleads' => $_POST['googleads'],  // Texto, não usar floatval
-        'facebookads' => $_POST['facebookads'],  // Texto, não usar floatval
+        'facebookads' => trim($_POST['facebookads']),  // Texto, não usar floatval
+        'facebookads2' => trim($_POST['facebookads2']),
     ];
 
     if (update_config($data)) {
@@ -79,8 +93,6 @@ $config = get_afiliados_config();
 <head>
     <?php $title = admin_t('page_images_title');
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 
@@ -122,18 +134,34 @@ $config = get_afiliados_config();
                                             </div>
                                         </div>
 
-                                        <!-- Nome do Site -->
+                                        <!-- Facebook Pixel 1 -->
                                         <div class="col-md-6">
                                             <div class="card mb-4">
                                                 <div class="card-body">
                                                     <h5 class="card-title">
-                                                        <i class="iconoir-group"></i> Facebook ADS
+                                                        <i class="iconoir-group"></i> Facebook ADS (Pixel 1)
                                                     </h5>
                                                     <p class="card-subtitle text-muted mb-2">
                                                         Coloque apenas o ID do trackeamento FacebookADS.
                                                     </p>
                                                     <input type="text" name="facebookads" class="form-control"
-                                                        value="<?= $config['facebookads'] ?>" required>
+                                                        value="<?= htmlspecialchars($config['facebookads'] ?? '', ENT_QUOTES) ?>">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Facebook Pixel 2 -->
+                                        <div class="col-md-6">
+                                            <div class="card mb-4">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">
+                                                        <i class="iconoir-group"></i> Facebook ADS (Pixel 2)
+                                                    </h5>
+                                                    <p class="card-subtitle text-muted mb-2">
+                                                        Segundo pixel opcional. Deixe em branco se não usar.
+                                                    </p>
+                                                    <input type="text" name="facebookads2" class="form-control"
+                                                        value="<?= htmlspecialchars($config['facebookads2'] ?? '', ENT_QUOTES) ?>">
                                                 </div>
                                             </div>
                                         </div>

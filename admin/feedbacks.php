@@ -280,8 +280,6 @@ if ($stats_result) {
 <head>
     <?php $title = "Gerenciar Feedbacks de Clientes";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
     
     <style>

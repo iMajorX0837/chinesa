@@ -22,6 +22,8 @@ if (!empty($_POST['user_code'])) {
     $user = trim($_SESSION['data']['user_code']);
 } elseif (!empty($_SESSION['data_user']['email'])) {
     $user = trim($_SESSION['data_user']['email']);
+} elseif (!empty($_SESSION['data_adm']['id'])) {
+    $user = 'adm-' . $_SESSION['data_adm']['id'];
 }
 
 if ($user === '') {

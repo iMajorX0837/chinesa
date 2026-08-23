@@ -180,8 +180,6 @@ $manipulacaoConfig = get_manipulacao_indicacoes();
 <head>
     <?php $title = admin_t('page_chests_title');
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

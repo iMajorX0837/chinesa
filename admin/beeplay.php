@@ -118,8 +118,6 @@ $games = get_games($limit, $offset, $search);
 <head>
     <?php $title = "Gerenciamento de Jogos BeePlay";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

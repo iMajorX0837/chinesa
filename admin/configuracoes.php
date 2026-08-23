@@ -214,8 +214,6 @@ $paymentMethods = get_payment_methods();
 <head>
     <?php $title = admin_t('page_config_affiliates_title');
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

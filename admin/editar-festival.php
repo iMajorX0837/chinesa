@@ -120,8 +120,6 @@ $banners = get_banners();
 <head>
     <?php $title = "Gerenciamento de festival";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

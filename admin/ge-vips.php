@@ -90,8 +90,6 @@ $vip_levels = get_vip_levels($limit, $offset);
 <head>
     <?php $title = admin_t('page_vips_title');
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

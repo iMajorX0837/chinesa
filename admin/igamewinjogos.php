@@ -219,8 +219,6 @@ $games_stats = get_games_stats($search);
 <head>
     <?php $title = "Gerenciamento de Jogos iGameWin";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css" rel="stylesheet">
     <?php include 'partials/head-css.php' ?>
 

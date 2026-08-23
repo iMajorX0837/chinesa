@@ -157,8 +157,6 @@ $coupons = get_coupons($limit, $offset);
 <head>
     <?php $title = "Gerenciamento de Cupons";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

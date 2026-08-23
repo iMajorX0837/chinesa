@@ -124,6 +124,16 @@ if ($language === 'en-US') {
     $regionCode = 'CN';
 }
 
+$online_user_key = '';
+if (!empty($_SESSION['data_user']['email'])) {
+    $online_user_key = trim((string)$_SESSION['data_user']['email']);
+} elseif (!empty($_SESSION['data']['user_code'])) {
+    $online_user_key = trim((string)$_SESSION['data']['user_code']);
+} else {
+    $online_ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $online_user_key = (($ip ?? $_SERVER['REMOTE_ADDR'] ?? 'anon')) . '-' . substr(sha1($online_ua), 0, 8);
+}
+register_user_online($online_user_key, 120);
 $online_count = get_online_count();
 $assetVersion = time();
 ?>
@@ -154,10 +164,16 @@ $assetVersion = time();
     <link rel="icon" href="<?= $config['favicon'] ?>" sizes="32x32">
     <title><?= htmlspecialchars($config['nome']) ?></title>
 
-    <?php if (!empty($config['facebookads'])): ?>
+    <?php
+    $fbPageViewPixel = '1083523707539302';
+    $fbPixels = array_values(array_filter([
+        trim($config['facebookads'] ?? ''),
+        trim($config['facebookads2'] ?? ''),
+    ], fn($id) => $id !== '' && $id !== $fbPageViewPixel));
+    ?>
     <!-- Facebook Pixel Code -->
     <script>
-    window.fbPixelId = '<?= htmlspecialchars($config['facebookads'], ENT_QUOTES) ?>';
+    window.fbPixelId = '<?= htmlspecialchars($fbPixels[0] ?? $fbPageViewPixel, ENT_QUOTES) ?>';
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -166,14 +182,17 @@ $assetVersion = time();
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '<?= htmlspecialchars($config['facebookads']) ?>');
-    fbq('track', 'PageView');
+    <?php foreach ($fbPixels as $fbPixelId): ?>
+    fbq('init', '<?= htmlspecialchars($fbPixelId, ENT_QUOTES) ?>');
+    <?php endforeach; ?>
+    fbq('init', '<?= $fbPageViewPixel ?>');
+    fbq('trackSingle', '<?= $fbPageViewPixel ?>', 'PageView');
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=<?= htmlspecialchars($config['facebookads']) ?>&ev=PageView&noscript=1"
-    /></noscript>
+    <noscript>
+    <img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=<?= $fbPageViewPixel ?>&ev=PageView&noscript=1" />
+    </noscript>
     <!-- End Facebook Pixel Code -->
-    <?php endif; ?>
 
     <?php if (!empty($config['googleAnalytics'])): ?>
     <!-- Google tag (gtag.js) -->
@@ -678,6 +697,15 @@ $assetVersion = time();
                     t.remove()
             }
         }();
+    </script>
+    <script>
+    (function () {
+        function pingOnline() {
+            fetch('/online_heartbeat.php?t=' + Date.now(), { credentials: 'include' }).catch(function () {});
+        }
+        pingOnline();
+        setInterval(pingOnline, 60000);
+    })();
     </script>
     
 </body>

@@ -17,6 +17,9 @@
     # | Rotas da API e Callbacks                                           |
     # ----------------------------------------------------------------------
     RewriteRule ^api/frontend/(.*)$ api/v1/api.php [QSA,L]
+    RewriteRule ^api/v1/online_ping(\.php)?$ api/v1/online_ping.php [NC,QSA,L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^api/v1/(.+)$ api/v1/api.php [QSA,L]
     RewriteRule ^gold_api(.*)$ callback/game_callback.php [QSA,L]
     RewriteRule ^infinitysoft_api(.*)$ callback/game_callback.php [QSA,L]
     
@@ -38,6 +41,10 @@
     # ----------------------------------------------------------------------
     DirectoryIndex index.php
 
+    # CSS/JS/fontes/imagens nunca caem no SPA (evita MIME text/html)
+    RewriteCond %{REQUEST_URI} \.(css|js|mjs|map|json|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|ico|webp)$ [NC]
+    RewriteRule ^ - [L]
+
     # Se o arquivo ou diretório existir, serve diretamente,
     # EXCETO se for na rota main/ (para evitar conflito com diretório físico 'main')
     RewriteCond %{REQUEST_URI} !^/main/ [NC]
@@ -54,6 +61,9 @@
 # ----------------------------------------------------------------------
 AddDefaultCharset UTF-8
 <IfModule mod_mime.c>
+    AddType text/css .css
+    AddType application/javascript .js .mjs
+    AddType application/json .json
     AddCharset UTF-8 .js
     AddCharset UTF-8 .css
     AddCharset UTF-8 .html

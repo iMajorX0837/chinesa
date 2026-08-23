@@ -46,7 +46,6 @@ $total_online = get_online_count();
 <head>
     <?php $title = "dash";
     include 'partials/title-meta.php' ?>
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
     
 </head>
@@ -414,7 +413,7 @@ body{
                     <script>
                     (function(){
                         function refreshAdminOnline(){
-                            fetch('/api/v1/online_ping?count=1')
+                            fetch('online_ping.php?count=1', {credentials: 'include'})
                                 .then(function(r){return r.json()})
                                 .then(function(d){
                                     if(d && d.success){
@@ -785,12 +784,6 @@ body{
         </div>
     </div>
     <?php include 'partials/vendorjs.php' ?>
-
-    <script src="assets/libs/apexcharts/apexcharts.min.js"></script>
-    <script src="assets/data/stock-prices.js"></script>
-    <script src="assets/libs/jsvectormap/jsvectormap.min.js"></script>
-    <script src="assets/libs/jsvectormap/maps/world.js"></script>
-    <script src="assets/js/pages/index.init.js"></script>
     <script src="assets/js/app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
 

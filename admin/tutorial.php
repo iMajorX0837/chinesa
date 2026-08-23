@@ -22,8 +22,6 @@ checa_login_adm();
 <head>
     <?php $title = "Histórico de Níveis Ganhos";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

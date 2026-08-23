@@ -122,8 +122,6 @@ $promocoes = get_promocoes();
 <head>
     <?php $title = "Gerenciamento de Promoções";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

@@ -76,8 +76,6 @@ $historico_vip = get_historico_vip($limit, $offset, $search_query);
 <head>
     <?php $title = "Histórico de Níveis Ganhos";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

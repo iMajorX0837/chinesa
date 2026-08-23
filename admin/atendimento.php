@@ -77,8 +77,6 @@ $config = get_afiliados_config();
 <head>
     <?php $title = "Configurações de Canais De Atendimento";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

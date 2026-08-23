@@ -100,8 +100,6 @@ $providers = get_providers($limit, $offset);
 <head>
     <?php $title = "Gerenciamento de Provedores";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

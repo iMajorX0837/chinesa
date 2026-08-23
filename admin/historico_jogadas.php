@@ -34,7 +34,6 @@ $search = isset($_GET['search']) ? mysqli_real_escape_string($mysqli, $_GET['sea
 <head>
     <?php $title = "Histórico de Partidas";
     include 'partials/title-meta.php'; ?>
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php'; ?>
 </head>
 

@@ -115,8 +115,6 @@ $cupons_usados = get_cupons_usados($limit, $offset, $search_query);
 <head>
     <?php $title = "Histórico de Bônus Usados";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

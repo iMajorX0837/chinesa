@@ -195,8 +195,6 @@ $defaultIcons = [
 <head>
     <?php $title = "Gerenciamento de Banners";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <style>
         .select2-container .select2-selection--single {
             height: 38px;

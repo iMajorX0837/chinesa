@@ -407,8 +407,6 @@ $email_logado = $_SESSION['data_adm']['email'];
 <head>
 <?php $title = "Gerenciamento de Administradores";
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 <body>

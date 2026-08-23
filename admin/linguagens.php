@@ -191,8 +191,6 @@ $languageData = [
 <head>
     <?php $title = admin_t('page_languages_title');
     include 'partials/title-meta.php' ?>
-
-    <link rel="stylesheet" href="assets/libs/jsvectormap/jsvectormap.min.css">
     <?php include 'partials/head-css.php' ?>
 </head>
 

@@ -5,7 +5,8 @@ RewriteEngine On
 
 #SITEMA DE LINKS DINAMICOS
 
-RewriteRule  ^api    			api.php	    		[NC,L]
+RewriteRule  ^online_ping(\.php)?$	online_ping.php		[NC,QSA,L]
+RewriteRule  ^api$    			api.php	    		[NC,L]
 RewriteRule  ^pixqr    			pixqr.php	    		[NC,L]
 
 RewriteCond %{REQUEST_FILENAME} !-f

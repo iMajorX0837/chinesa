@@ -358,6 +358,46 @@ function sendTrpcResponse($data, $meta = null) {
     echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
 }
+set_exception_handler(function (Throwable $e) {
+    error_log('Uncaught exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    if (function_exists('sendApiError')) {
+        sendApiError(500, 'Internal error');
+    }
+    if (ob_get_length()) ob_clean();
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Internal error']);
+    exit;
+});
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if (!$err || !in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+        return;
+    }
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+    if (!is_string($requestPath) || strpos($requestPath, '/trpc/') === false) {
+        return;
+    }
+    if (ob_get_length()) ob_clean();
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    $proc = preg_replace('#^.*/trpc/#', '', $requestPath);
+    echo json_encode([
+        "error" => [
+            "json" => [
+                "message" => "Internal error",
+                "code" => -32603,
+                "data" => [
+                    "code" => "INTERNAL_SERVER_ERROR",
+                    "httpStatus" => 500,
+                    "path" => $proc
+                ]
+            ]
+        ]
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+});
 function normalizeProviderKey($value) {
     $value = trim((string)$value);
     if ($value === '') return '';
@@ -1367,74 +1407,116 @@ if ($path === '/api/frontend/trpc/registerReward.receive') {
 
 if ($path === '/api/frontend/trpc/registerReward.apply') {
     $rotaEncontrada = true;
-    $user = getCurrentUser($mysqli);
-    
-    if ($user) {
-        $userId = $user['id'];
-        
-        // Check if already applied
-        if (isset($user['canApplyRegisterReward']) && ($user['canApplyRegisterReward'] == 0 || $user['canApplyRegisterReward'] === false)) {
-            sendTrpcResponse(["error" => "Already received"]);
-            exit;
+    try {
+        $user = getCurrentUser($mysqli);
+        if (!$user) {
+            sendApiError(401, "Login required");
         }
-        
-        // Carregar range de recompensa da Roleta Boas-Vindas
+
+        $userId = (int)$user['id'];
+
+        $stmtDup = $mysqli->prepare("SELECT id, valor FROM adicao_saldo WHERE id_user = ? AND tipo = 'register_reward' LIMIT 1");
+        if ($stmtDup) {
+            $stmtDup->bind_param("i", $userId);
+            $stmtDup->execute();
+            $dupRes = $stmtDup->get_result();
+            if ($dupRes && $dupRow = $dupRes->fetch_assoc()) {
+                $prevCents = (int)round(((float)$dupRow['valor']) * 100);
+                $stmtDup->close();
+                sendTrpcResponse([
+                    "awardAmount" => $prevCents,
+                    "doubleMultiplier" => 0,
+                    "isOpenDouble" => false,
+                    "registerRewardId" => (int)$dupRow['id']
+                ]);
+            }
+            $stmtDup->close();
+        }
+        if (isset($user['canApplyRegisterReward']) && ($user['canApplyRegisterReward'] == 0 || $user['canApplyRegisterReward'] === false)) {
+            sendTrpcResponse([
+                "awardAmount" => 0,
+                "doubleMultiplier" => 0,
+                "isOpenDouble" => false,
+                "registerRewardId" => null
+            ]);
+        }
+
         $minRoulette = 30;
         $maxRoulette = 30;
-        $resWR = $mysqli->query("SELECT min_cents, max_cents FROM welcome_roulette_settings WHERE id=1");
+        $rolloverMultiple = 1.00;
+        $resWR = @$mysqli->query("SELECT min_cents, max_cents, audit_multiple FROM welcome_roulette_settings WHERE id=1");
         if ($resWR && $rowWR = $resWR->fetch_assoc()) {
             $minRoulette = (int)$rowWR['min_cents'];
             $maxRoulette = (int)$rowWR['max_cents'];
-            if ($maxRoulette < $minRoulette) { $t=$minRoulette; $minRoulette=$maxRoulette; $maxRoulette=$t; }
+            $rolloverMultiple = (float)($rowWR['audit_multiple'] ?? 1.00);
+            if ($maxRoulette < $minRoulette) {
+                $t = $minRoulette;
+                $minRoulette = $maxRoulette;
+                $maxRoulette = $t;
+            }
         }
-        // Gerar valor em centavos e converter para reais
-        $amountCents = mt_rand($minRoulette, $maxRoulette);
+        if ($minRoulette < 0) $minRoulette = 0;
+        if ($maxRoulette < $minRoulette) $maxRoulette = $minRoulette;
+        if ($rolloverMultiple <= 0) $rolloverMultiple = 1.00;
+        if ($rolloverMultiple > 9999.99) $rolloverMultiple = 9999.99;
+
+        $amountCents = ($maxRoulette >= $minRoulette) ? mt_rand($minRoulette, $maxRoulette) : $minRoulette;
         $amount = round($amountCents / 100.0, 2);
-        
-        // 1. Update User Balance & Set canApplyRegisterReward = false
-        $oldBalance = $user['saldo'];
-        $newBalance = $oldBalance + $amount;
-        $stmtUpdate = $mysqli->prepare("UPDATE usuarios SET saldo = ?, canApplyRegisterReward = 0 WHERE id = ?");
-        $stmtUpdate->bind_param("di", $newBalance, $userId);
-        
-        if ($stmtUpdate->execute()) {
-            $stmtUpdate->close();
-            
-        $rolloverMultiple = 1.00;
-        $resWRAM = $mysqli->query("SELECT audit_multiple FROM welcome_roulette_settings WHERE id=1");
-        if ($resWRAM && $rowWRAM = $resWRAM->fetch_assoc()) {
-            $rolloverMultiple = (float)$rowWRAM['audit_multiple'];
-            if ($rolloverMultiple <= 0) $rolloverMultiple = 1.00;
+        $needFlow = round($amount * $rolloverMultiple, 2);
+        $flowType = 'ACTIVITY';
+        $activityName = 'RegisterReward';
+        $insertedId = 0;
+
+        $mysqli->begin_transaction();
+        $stmtUpdate = $mysqli->prepare("UPDATE usuarios SET saldo = saldo + ?, canApplyRegisterReward = 0 WHERE id = ? AND canApplyRegisterReward <> 0");
+        if (!$stmtUpdate) {
+            throw new RuntimeException('Failed to prepare balance update');
         }
-            $needFlow = $amount * $rolloverMultiple;
-            $flowType = 'ACTIVITY';
-            $activityName = 'RegisterReward';
-            $status = 'notStarted';
-            
-            $stmtAudit = $mysqli->prepare("INSERT INTO audit_flows (user_id, amount, flow_multiple, need_flow, current_flow, status, flow_type, activity_name) VALUES (?, ?, ?, ?, 0, ?, ?, ?)");
-            $stmtAudit->bind_param("iddssss", $userId, $amount, $rolloverMultiple, $needFlow, $status, $flowType, $activityName);
+        $stmtUpdate->bind_param("di", $amount, $userId);
+        $stmtUpdate->execute();
+        $updatedRows = $stmtUpdate->affected_rows;
+        $stmtUpdate->close();
+        if ($updatedRows < 1) {
+            $mysqli->rollback();
+            sendTrpcResponse([
+                "awardAmount" => 0,
+                "doubleMultiplier" => 0,
+                "isOpenDouble" => false,
+                "registerRewardId" => null
+            ]);
+        }
+
+        $statusZero = 0;
+        $stmtAudit = $mysqli->prepare("INSERT INTO audit_flows (user_id, amount, flow_multiple, need_flow, current_flow, status, flow_type, activity_name) VALUES (?, ?, ?, ?, 0, ?, ?, ?)");
+        if ($stmtAudit) {
+            $stmtAudit->bind_param("idddiss", $userId, $amount, $rolloverMultiple, $needFlow, $statusZero, $flowType, $activityName);
             $stmtAudit->execute();
             $stmtAudit->close();
-            
-            // 3. Log Transaction
-            $stmtLog = $mysqli->prepare("INSERT INTO adicao_saldo (id_user, valor, tipo, data_registro) VALUES (?, ?, 'register_reward', NOW())");
-            $stmtLog->bind_param("id", $userId, $amount);
-            $stmtLog->execute();
-            $stmtLog->close();
-            
-            // 4. Return Specific JSON
-            $response = [
-                "awardAmount" => $amountCents, 
-                "doubleMultiplier" => 0, 
-                "isOpenDouble" => false, 
-                "registerRewardId" => 544583489 
-            ];
-            sendTrpcResponse($response);
-        } else {
-            sendTrpcResponse(["error" => "Failed to update balance"]);
         }
-    } else {
-        sendTrpcResponse(["error" => "Login required"]);
+
+        $stmtLog = $mysqli->prepare("INSERT INTO adicao_saldo (id_user, valor, tipo, data_registro) VALUES (?, ?, 'register_reward', NOW())");
+        if (!$stmtLog) {
+            throw new RuntimeException('Failed to prepare reward log');
+        }
+        $stmtLog->bind_param("id", $userId, $amount);
+        $stmtLog->execute();
+        $insertedId = (int)$stmtLog->insert_id;
+        $stmtLog->close();
+
+        $mysqli->commit();
+
+        sendTrpcResponse([
+            "awardAmount" => $amountCents,
+            "doubleMultiplier" => 0,
+            "isOpenDouble" => false,
+            "registerRewardId" => $insertedId > 0 ? $insertedId : $userId
+        ]);
+    } catch (Throwable $e) {
+        if ($mysqli instanceof mysqli) {
+            @$mysqli->rollback();
+        }
+        error_log("registerReward.apply failed: " . $e->getMessage());
+        sendApiError(500, "Internal error");
     }
 }
 if ($path === '/api/frontend/trpc/auth.info') {

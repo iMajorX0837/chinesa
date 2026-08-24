@@ -63,13 +63,98 @@ function create_banner($type, $titulo, $status, $img, $targetValue = null, $defa
     return $qry->execute();
 }
 
+function banner_upload_error_message($code)
+{
+    switch ((int) $code) {
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            return 'Arquivo muito grande. Limite: 20 MB.';
+        case UPLOAD_ERR_PARTIAL:
+            return 'Upload incompleto. Tente enviar a imagem novamente.';
+        case UPLOAD_ERR_NO_FILE:
+            return 'Nenhum arquivo selecionado.';
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return 'Servidor sem pasta temporária para upload.';
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'Servidor não conseguiu gravar o arquivo enviado.';
+        case UPLOAD_ERR_EXTENSION:
+            return 'Upload bloqueado pela configuração do servidor.';
+        default:
+            return 'Erro ao enviar a imagem. Tente novamente.';
+    }
+}
+
+function banner_is_valid_image_file(array $file, $file_extension)
+{
+    $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : null;
+    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : ($file['type'] ?? '');
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    if (is_string($mime) && stripos($mime, 'image/') === 0) {
+        return true;
+    }
+
+    if ($file_extension === 'svg') {
+        return is_string($mime) && in_array($mime, ['image/svg+xml', 'application/xml', 'text/xml', 'text/plain'], true);
+    }
+
+    if ($file_extension === 'avif') {
+        return is_string($mime) && (stripos($mime, 'image/') === 0 || $mime === 'application/octet-stream');
+    }
+
+    if ($file_extension !== 'svg') {
+        return @getimagesize($file['tmp_name']) !== false;
+    }
+
+    return false;
+}
+
+function banner_store_uploaded_image(array $file)
+{
+    $upload_dir = __DIR__ . '/../uploads/';
+
+    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
+        return ['ok' => false, 'message' => banner_upload_error_message($file['error'] ?? UPLOAD_ERR_NO_FILE)];
+    }
+
+    if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return ['ok' => false, 'message' => 'Arquivo inválido ou não recebido pelo servidor.'];
+    }
+
+    $original_name = basename($file['name'] ?? '');
+    $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+    $allowed_extensions = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'ico', 'avif', 'svg'];
+
+    if (!in_array($file_extension, $allowed_extensions, true)) {
+        return ['ok' => false, 'message' => 'Extensão de arquivo não permitida.'];
+    }
+
+    if (!banner_is_valid_image_file($file, $file_extension)) {
+        return ['ok' => false, 'message' => 'O arquivo enviado não é uma imagem válida.'];
+    }
+
+    if (!is_dir($upload_dir) && !@mkdir($upload_dir, 0755, true)) {
+        return ['ok' => false, 'message' => 'Pasta de uploads indisponível.'];
+    }
+
+    $new_img_name = uniqid('banner_', true) . '.' . $file_extension;
+    $img_path = $upload_dir . $new_img_name;
+
+    if (!move_uploaded_file($file['tmp_name'], $img_path) || !is_file($img_path)) {
+        return ['ok' => false, 'message' => 'Erro ao enviar a imagem. Verifique permissões da pasta uploads.'];
+    }
+
+    return ['ok' => true, 'filename' => $new_img_name];
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = isset($_POST['action']) ? $_POST['action'] : 'update';
     $titulo = isset($_POST['titulo']) ? $_POST['titulo'] : '';
     $status = isset($_POST['status']) ? intval($_POST['status']) : 0;
     $targetValue = isset($_POST['targetValue']) ? $_POST['targetValue'] : null;
     $defaultIconUrl = isset($_POST['defaultIconUrl']) ? $_POST['defaultIconUrl'] : null;
-    $upload_dir = "../uploads/";
 
     if ($action === 'create') {
         $type = isset($_POST['type']) ? $_POST['type'] : 'lobby_carousel';
@@ -81,36 +166,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $toastType = 'error';
             $toastMessage = 'Informe título e imagem para criar um novo banner.';
         } else {
-            $original_name = basename($_FILES['img']['name']);
-            $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
-            $allowed_extensions = ['png','jpg','jpeg','webp','gif','ico','avif','svg'];
-            if (in_array($file_extension, $allowed_extensions, true)) {
-                $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : null;
-                $mime = $finfo ? finfo_file($finfo, $_FILES['img']['tmp_name']) : ($_FILES['img']['type'] ?? '');
-                if ($finfo) { finfo_close($finfo); }
-                $is_image = stripos((string)$mime, 'image/') === 0;
-                if ($is_image) {
-                    $new_img_name = time() . '_' . $original_name;
-                    $img_path = $upload_dir . $new_img_name;
-                    if (move_uploaded_file($_FILES["img"]["tmp_name"], $img_path)) {
-                        if (create_banner($type, $titulo, $status, $new_img_name, $targetValue, $defaultIconUrl)) {
-                            $toastType = 'success';
-                            $toastMessage = 'Novo banner criado com sucesso.';
-                        } else {
-                            $toastType = 'error';
-                            $toastMessage = 'Erro ao salvar o novo banner.';
-                        }
-                    } else {
-                        $toastType = 'error';
-                        $toastMessage = 'Erro ao enviar a imagem. Tente novamente.';
-                    }
+            $upload = banner_store_uploaded_image($_FILES['img']);
+            if ($upload['ok']) {
+                if (create_banner($type, $titulo, $status, $upload['filename'], $targetValue, $defaultIconUrl)) {
+                    $toastType = 'success';
+                    $toastMessage = 'Novo banner criado com sucesso.';
                 } else {
+                    @unlink(__DIR__ . '/../uploads/' . $upload['filename']);
                     $toastType = 'error';
-                    $toastMessage = 'O arquivo enviado não é uma imagem válida.';
+                    $toastMessage = 'Erro ao salvar o novo banner.';
                 }
             } else {
                 $toastType = 'error';
-                $toastMessage = 'Extensão de arquivo não permitida.';
+                $toastMessage = $upload['message'];
             }
         }
     } else {
@@ -121,43 +189,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt->execute();
         $result = $stmt->get_result();
         $banner = $result->fetch_assoc();
-        $img = $banner['img'];
+        if (!$banner) {
+            $toastType = 'error';
+            $toastMessage = 'Banner não encontrado.';
+        } else {
+            $img = $banner['img'];
 
-        if (!empty($_FILES['img']['name'])) {
-            $original_name = basename($_FILES['img']['name']);
-            $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
-            $allowed_extensions = ['png','jpg','jpeg','webp','gif','ico','avif','svg'];
-            if (in_array($file_extension, $allowed_extensions, true)) {
-                $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : null;
-                $mime = $finfo ? finfo_file($finfo, $_FILES['img']['tmp_name']) : ($_FILES['img']['type'] ?? '');
-                if ($finfo) { finfo_close($finfo); }
-                $is_image = stripos((string)$mime, 'image/') === 0;
-                if ($is_image) {
-                    $new_img_name = time() . '_' . $original_name;
-                    $img_path = $upload_dir . $new_img_name;
-                    if (move_uploaded_file($_FILES["img"]["tmp_name"], $img_path)) {
-                        $img = $new_img_name;
-                    } else {
-                        $toastType = 'error';
-                        $toastMessage = 'Erro ao enviar a imagem. Tente novamente.';
-                    }
+            if (!empty($_FILES['img']['name'])) {
+                $upload = banner_store_uploaded_image($_FILES['img']);
+                if ($upload['ok']) {
+                    $img = $upload['filename'];
                 } else {
                     $toastType = 'error';
-                    $toastMessage = 'O arquivo enviado não é uma imagem válida.';
+                    $toastMessage = $upload['message'];
                 }
-            } else {
-                $toastType = 'error';
-                $toastMessage = 'Extensão de arquivo não permitida.';
             }
-        }
 
-        if (!isset($toastType) || $toastType !== 'error') {
-            if (update_banner($id, $titulo, $status, $img, $targetValue, $defaultIconUrl)) {
-                $toastType = 'success';
-                $toastMessage = 'Banner atualizado com sucesso.';
-            } else {
-                $toastType = 'error';
-                $toastMessage = 'Erro ao atualizar o banner. Tente novamente.';
+            if (!isset($toastType) || $toastType !== 'error') {
+                if (update_banner($id, $titulo, $status, $img, $targetValue, $defaultIconUrl)) {
+                    $toastType = 'success';
+                    $toastMessage = 'Banner atualizado com sucesso.';
+                } else {
+                    $toastType = 'error';
+                    $toastMessage = 'Erro ao atualizar o banner. Tente novamente.';
+                }
             }
         }
     }

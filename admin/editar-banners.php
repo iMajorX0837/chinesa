@@ -49,7 +49,7 @@ function update_banner($id, $titulo, $status, $img = null, $targetValue = null, 
         $qry->bind_param("sisssi", $titulo, $status, $img, $targetValue, $defaultIconUrl, $id);
     } else {
         $qry = $mysqli->prepare("UPDATE banner SET titulo = ?, status = ?, targetValue = ?, defaultIconUrl = ? WHERE id = ?");
-        $qry->bind_param("sisssi", $titulo, $status, $targetValue, $defaultIconUrl, $id);
+        $qry->bind_param("sissi", $titulo, $status, $targetValue, $defaultIconUrl, $id);
     }
 
     return $qry->execute();
@@ -151,12 +151,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
-        if (update_banner($id, $titulo, $status, $img, $targetValue, $defaultIconUrl)) {
-            $toastType = 'success';
-            $toastMessage = 'Banner atualizado com sucesso.';
-        } else {
-            $toastType = 'error';
-            $toastMessage = 'Erro ao atualizar o banner. Tente novamente.';
+        if (!isset($toastType) || $toastType !== 'error') {
+            if (update_banner($id, $titulo, $status, $img, $targetValue, $defaultIconUrl)) {
+                $toastType = 'success';
+                $toastMessage = 'Banner atualizado com sucesso.';
+            } else {
+                $toastType = 'error';
+                $toastMessage = 'Erro ao atualizar o banner. Tente novamente.';
+            }
         }
     }
 }
@@ -585,11 +587,10 @@ $defaultIcons = [
         </div>
     </div>
 
-    <script>
-        function showToast(type, message){window.showToast(type,message);}
-        <?php if (isset($toastType) && isset($toastMessage)): ?>
-            showToast("<?= $toastType; ?>", "<?= $toastMessage; ?>");
-        <?php endif; ?>
-    </script>
+    <?php if (isset($toastType) && isset($toastMessage)): ?>
+        <script>
+            window.showToast("<?= $toastType; ?>", "<?= $toastMessage; ?>");
+        </script>
+    <?php endif; ?>
 </body>
 </html>

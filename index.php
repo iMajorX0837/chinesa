@@ -164,10 +164,16 @@ $assetVersion = time();
     <link rel="icon" href="<?= $config['favicon'] ?>" sizes="32x32">
     <title><?= htmlspecialchars($config['nome']) ?></title>
 
-    <?php $fbPageViewPixel = '1083523707539302'; ?>
+    <?php
+    $fbPixels = array_values(array_unique(array_filter([
+        trim($config['facebookads'] ?? ''),
+        trim($config['facebookads2'] ?? ''),
+    ])));
+    ?>
+    <?php if (!empty($fbPixels)): ?>
     <!-- Facebook Pixel Code -->
     <script>
-    window.fbPixelId = '<?= htmlspecialchars($fbPageViewPixel, ENT_QUOTES) ?>';
+    window.fbPixelId = '<?= htmlspecialchars($fbPixels[0], ENT_QUOTES) ?>';
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -176,14 +182,19 @@ $assetVersion = time();
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '<?= $fbPageViewPixel ?>');
-    fbq('track', 'PageView');
+    <?php foreach ($fbPixels as $fbPixelId): ?>
+    fbq('init', '<?= htmlspecialchars($fbPixelId, ENT_QUOTES) ?>');
+    fbq('trackSingle', '<?= htmlspecialchars($fbPixelId, ENT_QUOTES) ?>', 'PageView');
+    <?php endforeach; ?>
     </script>
     <noscript>
+    <?php foreach ($fbPixels as $fbPixelId): ?>
     <img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=<?= $fbPageViewPixel ?>&ev=PageView&noscript=1" />
+    src="https://www.facebook.com/tr?id=<?= htmlspecialchars($fbPixelId, ENT_QUOTES) ?>&ev=PageView&noscript=1" />
+    <?php endforeach; ?>
     </noscript>
     <!-- End Facebook Pixel Code -->
+    <?php endif; ?>
 
     <?php if (!empty($config['googleAnalytics'])): ?>
     <!-- Google tag (gtag.js) -->

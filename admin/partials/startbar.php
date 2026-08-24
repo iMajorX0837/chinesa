@@ -123,13 +123,22 @@ if (!function_exists('admin_t')) {
                                     <a class="nav-link" href="baus"><i class="ti ti-file-text"></i><span><?= admin_t('menu_affiliates_settings') ?></span></a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link" href="gerenciamento-afiliados"><i class="ti ti-affiliate"></i><span><?= admin_t('menu_affiliate_management') ?></span></a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" href="gateway"><i class="ti ti-credit-card"></i><span><?= admin_t('menu_payments') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="chavespix"><i class="ti ti-key"></i><span><?= admin_t('menu_pix_keys') ?></span></a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="niveis"><i class="ti ti-stars"></i><span><?= admin_t('menu_vips') ?></span></a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="checklist"><i class="ti ti-circle-check"></i><span><?= admin_t('menu_daily_checklist') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="checkin"><i class="ti ti-calendar-check"></i><span><?= admin_t('menu_checkin') ?></span></a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="cupons"><i class="ti ti-ticket"></i><span><?= admin_t('menu_coupons') ?></span></a>
@@ -150,10 +159,22 @@ if (!function_exists('admin_t')) {
                                     <a class="nav-link" href="webhooks"><i class="ti ti-hierarchy-2"></i><span><?= admin_t('menu_webhooks') ?></span></a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link" href="pixel"><i class="ti ti-chart-arcs"></i><span><?= admin_t('menu_pixels') ?></span></a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" href="roleta_boas_vindas"><i class="ti ti-360-view"></i><span>Roleta Boas-Vindas</span></a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link" href="roleta"><i class="ti ti-rotate-clockwise"></i><span><?= admin_t('menu_wheel_config') ?></span></a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" href="envelope_vermelho"><i class="ti ti-gift"></i><span>Envelope Vermelho</span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="mensagens"><i class="ti ti-message"></i><span><?= admin_t('menu_messages') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="tutorial"><i class="ti ti-book"></i><span><?= admin_t('menu_tutorial') ?></span></a>
                                 </li>
                             </ul>
                         </div>
@@ -207,6 +228,21 @@ if (!function_exists('admin_t')) {
                             </ul>
                             
                             <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="popups"><i class="ti ti-app-window"></i><span><?= admin_t('menu_popups') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="festival"><i class="ti ti-confetti"></i><span><?= admin_t('menu_festival') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="jackpot"><i class="ti ti-trophy"></i><span><?= admin_t('menu_jackpot') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="numeros-jackpot"><i class="ti ti-hash"></i><span><?= admin_t('menu_jackpot_numbers') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="jogo-imagem"><i class="ti ti-photo-plus"></i><span><?= admin_t('menu_game_images') ?></span></a>
+                                </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="notificacoes"><i class="ti ti-bell"></i><span><?= admin_t('menu_general_notifications') ?></span></a>
                                 </li>
@@ -335,6 +371,34 @@ if (!function_exists('admin_t')) {
                         </div>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link" href="#sidebarAffiliateWithdrawals" data-bs-toggle="collapse" role="button"
+                            aria-expanded="false" aria-controls="sidebarAffiliateWithdrawals">
+                            <i class="iconoir-hand-cash menu-icon"></i>
+                            <span><?= admin_t('menu_affiliate_withdrawals') ?></span>
+                            <span class="trail"><i class="ti ti-chevron-right chev"></i><span class="badge rounded text-warning bg-warning-subtle"><?= $total_saques_afiliados; ?></span></span>
+                        </a>
+                        <div class="collapse" id="sidebarAffiliateWithdrawals">
+                            <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="saques_afiliados_aprovados"><i class="ti ti-circle-check"></i><span><?= admin_t('menu_paid') ?></span>
+                                        <span class="badge rounded text-success bg-success-subtle ms-1"><?= $total_saques_afiliados_aprovados; ?></span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="saques_afiliados_pendentes"><i class="ti ti-hourglass"></i><span><?= admin_t('menu_pending') ?></span>
+                                        <span class="badge rounded text-warning bg-warning-subtle ms-1"><?= $total_saques_afiliados_pendentes; ?></span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="saques_afiliados_recusados"><i class="ti ti-circle-x"></i><span><?= admin_t('menu_refused') ?></span>
+                                        <span class="badge rounded text-danger bg-danger-subtle ms-1"><?= $total_saques_afiliados_recusados; ?></span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+
                     
                     
                     <li class="menu-label mt-2">
@@ -362,14 +426,13 @@ if (!function_exists('admin_t')) {
                                 <li class="nav-item">
                                     <a class="nav-link" href="contas-demos"><i class="ti ti-device-gamepad-2"></i><span><?= admin_t('menu_create_demo_account') ?></span></a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="administradores"><i class="ti ti-shield-lock"></i><span><?= admin_t('operators') ?></span></a>
+                                </li>
                             </ul>
                         </div>
                     </li>
-                    
-                    
-                    
-                    
-                    
+
                     <?php
                     $query_feedbacks_pendentes = "SELECT COUNT(*) as total_pendentes FROM customer_feedback WHERE status = 'pending'";
                     $result_feedbacks_pendentes = mysqli_query($mysqli, $query_feedbacks_pendentes);
@@ -381,10 +444,16 @@ if (!function_exists('admin_t')) {
                     $row_feedbacks_total = mysqli_fetch_assoc($result_feedbacks_total);
                     $total_feedbacks = $row_feedbacks_total['total'];
                     ?>
-                    
-                    
 
-                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="feedbacks">
+                            <i class="iconoir-message-text menu-icon"></i>
+                            <span><?= admin_t('menu_feedbacks') ?></span>
+                            <?php if ($total_feedbacks_pendentes > 0): ?>
+                            <span class="trail"><span class="badge rounded text-warning bg-warning-subtle"><?= $total_feedbacks_pendentes; ?></span></span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
                     
                     <li class="menu-label mt-2">
                         <small class="label-border">
@@ -444,6 +513,18 @@ if (!function_exists('admin_t')) {
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="provedores"><i class="ti ti-server"></i><span><?= admin_t('menu_providers') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="chavesplayfiver"><i class="ti ti-key"></i><span><?= admin_t('menu_playfiver_credentials') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="gamesplayfiver"><i class="ti ti-device-gamepad"></i><span><?= admin_t('menu_playfiver_games') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="gamesbeeplay"><i class="ti ti-bee"></i><span><?= admin_t('menu_beeplay_games') ?></span></a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="igamewinjogos"><i class="ti ti-device-gamepad-2"></i><span><?= admin_t('menu_igamewin_games') ?></span></a>
                                 </li>
                             </ul>
                         </div>

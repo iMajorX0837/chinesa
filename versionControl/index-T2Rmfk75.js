@@ -32439,8 +32439,7 @@ async function Es(t, a) {
     }
 }
 async function sK(t, a) {
-    !window.fbq || !Gn[t].fbq.event || Gn[t].fbq.event === "" || (fbq("track", Gn[t].fbq.event, Mi(Gn[t].fbq.dataMapping, a)),
-    await Bi(t, a))
+    await Bi(t, a)
 }
 async function oK(t, a) {
     !window.ttq || !Gn[t].ttq.event || Gn[t].ttq.event === "" || (ttq.track(Gn[t].ttq.event, {

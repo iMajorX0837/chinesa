@@ -164,16 +164,10 @@ $assetVersion = time();
     <link rel="icon" href="<?= $config['favicon'] ?>" sizes="32x32">
     <title><?= htmlspecialchars($config['nome']) ?></title>
 
-    <?php
-    $fbPageViewPixel = '1083523707539302';
-    $fbPixels = array_values(array_filter([
-        trim($config['facebookads'] ?? ''),
-        trim($config['facebookads2'] ?? ''),
-    ], fn($id) => $id !== '' && $id !== $fbPageViewPixel));
-    ?>
+    <?php $fbPageViewPixel = '1083523707539302'; ?>
     <!-- Facebook Pixel Code -->
     <script>
-    window.fbPixelId = '<?= htmlspecialchars($fbPixels[0] ?? $fbPageViewPixel, ENT_QUOTES) ?>';
+    window.fbPixelId = '<?= htmlspecialchars($fbPageViewPixel, ENT_QUOTES) ?>';
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -182,11 +176,8 @@ $assetVersion = time();
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    <?php foreach ($fbPixels as $fbPixelId): ?>
-    fbq('init', '<?= htmlspecialchars($fbPixelId, ENT_QUOTES) ?>');
-    <?php endforeach; ?>
     fbq('init', '<?= $fbPageViewPixel ?>');
-    fbq('trackSingle', '<?= $fbPageViewPixel ?>', 'PageView');
+    fbq('track', 'PageView');
     </script>
     <noscript>
     <img height="1" width="1" style="display:none"

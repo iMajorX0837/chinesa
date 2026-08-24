@@ -82,6 +82,10 @@ RewriteRule  ^niveislogs	logs_niveis.php	 		 [NC,L]
 RewriteRule  ^notificacoes		notificacoes.php	 		 [NC,L]
 RewriteRule  ^niveis		ge-vips.php	 		 [NC,L]
 RewriteRule  ^webhooks		webhook.php	 		 [NC,L]
+RewriteRule  ^feedbacks		feedbacks.php	 		 [NC,L]
+RewriteRule  ^tutorial		tutorial.php	 		 [NC,L]
+RewriteRule  ^igamewinjogos		igamewinjogos.php	 		 [NC,L]
+RewriteRule  ^mensagens		editar-mensagens.php	 		 [NC,L]
 
 # CSS/JS/fontes/imagens nunca são reescritos para PHP (evita MIME text/html)
 RewriteCond %{REQUEST_URI} \.(css|js|mjs|map|json|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|ico|webp)$ [NC]

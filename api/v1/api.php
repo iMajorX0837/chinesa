@@ -785,6 +785,9 @@ function deve_contabilizar_indicacao($mysqli, $invite_code_afiliado) {
         return false;
     }
 }
+function bau_foi_resgatado($status, $is_get = 0) {
+    return ((int)$is_get === 1) || $status === 'claimed' || (string)$status === '1' || (int)$status === 1;
+}
 function getBoxList($mysqli, $token) {
     $config_afiliados_qry = "SELECT minDepForCpa, minResgate, pagar_baus FROM afiliados_config WHERE id = 1";
     $config_afiliados_resp = mysqli_query($mysqli, $config_afiliados_qry);
@@ -824,7 +827,7 @@ function getBoxList($mysqli, $token) {
         $qryBau = "SELECT num, status, is_get FROM bau WHERE id_user = '{$user['id']}'";
         $respBau = mysqli_query($mysqli, $qryBau);
         while ($rowBau = mysqli_fetch_assoc($respBau)) {
-            if ($rowBau['status'] === 'claimed' || $rowBau['is_get'] == 1) {
+            if (bau_foi_resgatado($rowBau['status'] ?? 0, $rowBau['is_get'] ?? 0)) {
                 $numsArray[] = trim($rowBau['num']);
             }
         }
@@ -1023,12 +1026,19 @@ if ($path === '/api/frontend/trpc/auth.registe') {
         $config_res = $mysqli->query($config_qry);
         $config_bau = $config_res ? $config_res->fetch_assoc() : null;
         $qntsbaus = (int)($config_bau['qntsbaus'] ?? 1);
-        for ($i = 1; $i <= $qntsbaus; $i++) {
-            $uuid = md5($userId . $i . time() . 'salt_bau');
-            $stmt_bau = $mysqli->prepare("INSERT INTO bau (id_user, num, status, token) VALUES (?, ?, 'user novo', ?)");
-            $stmt_bau->bind_param("iis", $userId, $i, $uuid);
-            $stmt_bau->execute();
-            $stmt_bau->close();
+        try {
+            for ($i = 1; $i <= $qntsbaus; $i++) {
+                $uuid = md5($userId . $i . time() . 'salt_bau');
+                $stmt_bau = $mysqli->prepare("INSERT INTO bau (id_user, num, status, token) VALUES (?, ?, 0, ?)");
+                if (!$stmt_bau) {
+                    throw new Exception($mysqli->error);
+                }
+                $stmt_bau->bind_param("iis", $userId, $i, $uuid);
+                $stmt_bau->execute();
+                $stmt_bau->close();
+            }
+        } catch (Throwable $e) {
+            error_log("auth.registe bau insert: " . $e->getMessage());
         }
         if (function_exists('criar_financeiro')) {
              criar_financeiro($userId);
@@ -1521,10 +1531,10 @@ if ($path === '/api/frontend/trpc/registerReward.apply') {
             ]);
         }
 
-        $statusZero = 0;
+        $statusNotStarted = 'notStarted';
         $stmtAudit = $mysqli->prepare("INSERT INTO audit_flows (user_id, amount, flow_multiple, need_flow, current_flow, status, flow_type, activity_name) VALUES (?, ?, ?, ?, 0, ?, ?, ?)");
         if ($stmtAudit) {
-            $stmtAudit->bind_param("idddiss", $userId, $amount, $rolloverMultiple, $needFlow, $statusZero, $flowType, $activityName);
+            $stmtAudit->bind_param("idddsss", $userId, $amount, $rolloverMultiple, $needFlow, $statusNotStarted, $flowType, $activityName);
             $stmtAudit->execute();
             $stmtAudit->close();
         }
@@ -3377,12 +3387,19 @@ if ($path === '/api/frontend/trpc/activity.activityDetail' || $path === '/api/fr
             $existing_count = $check_bau_res->num_rows;
             $check_bau->close();
             if ($existing_count < $qntsbaus) {
-                 for ($i = $existing_count + 1; $i <= $qntsbaus; $i++) {
-                     $uuid = md5($userId . $i . time() . 'salt_bau_check');
-                     $stmt = $mysqli->prepare("INSERT INTO bau (id_user, num, status, token) VALUES (?, ?, 'user novo', ?)");
-                     $stmt->bind_param("iis", $userId, $i, $uuid);
-                     $stmt->execute();
-                     $stmt->close();
+                 try {
+                     for ($i = $existing_count + 1; $i <= $qntsbaus; $i++) {
+                         $uuid = md5($userId . $i . time() . 'salt_bau_check');
+                         $stmt = $mysqli->prepare("INSERT INTO bau (id_user, num, status, token) VALUES (?, ?, 0, ?)");
+                         if (!$stmt) {
+                             throw new Exception($mysqli->error);
+                         }
+                         $stmt->bind_param("iis", $userId, $i, $uuid);
+                         $stmt->execute();
+                         $stmt->close();
+                     }
+                 } catch (Throwable $e) {
+                     error_log("bau backfill insert: " . $e->getMessage());
                  }
             }
         } else {
@@ -3404,7 +3421,7 @@ if ($path === '/api/frontend/trpc/activity.activityDetail' || $path === '/api/fr
             $res = $stmt->get_result();
             while($row = $res->fetch_assoc()) {
                 $userBaus[$row['num']] = $row['token'];
-                $claimedBaus[$row['num']] = ($row['status'] === 'claimed' || $row['is_get'] == 1);
+                $claimedBaus[$row['num']] = bau_foi_resgatado($row['status'] ?? 0, $row['is_get'] ?? 0);
             }
             $stmt->close();
         }
@@ -3693,33 +3710,45 @@ if (strpos($path, '/reward.receive') !== false) {
         // 2. Insert into red_pocket_rewards
         if (!empty($orderNo)) {
             $stmtInsert = $mysqli->prepare("INSERT INTO red_pocket_rewards (user_id, order_no, batch_no, amount, created_at) VALUES (?, ?, ?, ?, NOW())");
-            $stmtInsert->bind_param("issd", $user['id'], $orderNo, $batchNo, $amount);
-            if (!$stmtInsert->execute()) {
-                 file_put_contents($logFile, "Insert Reward Error: " . $stmtInsert->error . "\n", FILE_APPEND);
+            if ($stmtInsert) {
+                $stmtInsert->bind_param("issd", $user['id'], $orderNo, $batchNo, $amount);
+                if (!$stmtInsert->execute()) {
+                     @file_put_contents($logFile, "Insert Reward Error: " . $stmtInsert->error . "\n", FILE_APPEND);
+                }
+                $stmtInsert->close();
             }
-            $stmtInsert->close();
         }
 
         // 3. Audit Flow
         if ($rolloverMultiple === null) {
-            // calcular padrão se não foi possível decodificar do orderNo
             $rolloverMultiple = 18.00;
         }
         $needFlow = $amount * $rolloverMultiple;
         $flowType = 'ACTIVITY';
         $activityName = 'RedPacket';
         $status = 'notStarted';
-        
-        $stmtAudit = $mysqli->prepare("INSERT INTO audit_flows (user_id, amount, flow_multiple, need_flow, current_flow, status, flow_type, activity_name) VALUES (?, ?, ?, ?, 0, ?, ?, ?)");
-        $stmtAudit->bind_param("iddssss", $user['id'], $amount, $rolloverMultiple, $needFlow, $status, $flowType, $activityName);
-        $stmtAudit->execute();
-        $stmtAudit->close();
+        try {
+            $stmtAudit = $mysqli->prepare("INSERT INTO audit_flows (user_id, amount, flow_multiple, need_flow, current_flow, status, flow_type, activity_name) VALUES (?, ?, ?, ?, 0, ?, ?, ?)");
+            if ($stmtAudit) {
+                $stmtAudit->bind_param("idddsss", $user['id'], $amount, $rolloverMultiple, $needFlow, $status, $flowType, $activityName);
+                $stmtAudit->execute();
+                $stmtAudit->close();
+            }
+        } catch (Throwable $e) {
+            error_log("reward.receive audit_flows: " . $e->getMessage());
+        }
         
         // 4. Log Transaction
-        $stmtLog = $mysqli->prepare("INSERT INTO adicao_saldo (id_user, valor, tipo, data_registro) VALUES (?, ?, 'Reward Manual', NOW())");
-        $stmtLog->bind_param("id", $user['id'], $amount);
-        $stmtLog->execute();
-        $stmtLog->close();
+        try {
+            $stmtLog = $mysqli->prepare("INSERT INTO adicao_saldo (id_user, valor, tipo, data_registro) VALUES (?, ?, 'Reward Manual', NOW())");
+            if ($stmtLog) {
+                $stmtLog->bind_param("id", $user['id'], $amount);
+                $stmtLog->execute();
+                $stmtLog->close();
+            }
+        } catch (Throwable $e) {
+            error_log("reward.receive adicao_saldo: " . $e->getMessage());
+        }
         
         sendTrpcResponse(["status" => "SUCCESS"]);
     } else {
@@ -5063,10 +5092,10 @@ if ($path === '/api/frontend/trpc/activity.apply') {
         $checkRes = $mysqli->query($checkQry);
         if ($checkRes->num_rows > 0) {
              $row = $checkRes->fetch_assoc();
-             if ($row['status'] === 'claimed') {
+             if (bau_foi_resgatado($row['status'] ?? 0, $row['is_get'] ?? 0)) {
                   throw new Exception("Already collected");
              }
-             $updateBau = "UPDATE bau SET status = 'claimed', is_get = 1 WHERE id = '{$row['id']}'";
+             $updateBau = "UPDATE bau SET status = 1, is_get = 1 WHERE id = '{$row['id']}'";
              if (!$mysqli->query($updateBau)) {
                   throw new Exception("Failed to update chest status");
              }
@@ -5074,7 +5103,7 @@ if ($path === '/api/frontend/trpc/activity.apply') {
              if ($isAgency) {
                   throw new Exception("Chest not found during transaction");
              }
-             $insertBau = "INSERT INTO bau (id_user, num, status, token, is_get) VALUES ('{$user['id']}', '$chestId', 'claimed', '{$user['token']}', 1)";
+             $insertBau = "INSERT INTO bau (id_user, num, status, token, is_get) VALUES ('{$user['id']}', '$chestId', 1, '{$user['token']}', 1)";
              if (!$mysqli->query($insertBau)) {
                  throw new Exception("Failed to insert chest record");
              }

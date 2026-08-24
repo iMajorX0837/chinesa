@@ -264,14 +264,10 @@ $banners = get_banners();
     <?php include 'partials/vendorjs.php' ?>
     <script src="assets/js/app.js"></script>
 
-    <script>
-        function showToast(type, message){window.showToast(type,message);}
-    </script>
-
     <!-- Exibir o Toast baseado nas ações do formulário -->
     <?php if ($toastType && $toastMessage): ?>
         <script>
-            showToast('<?= $toastType ?>', '<?= $toastMessage ?>');
+            window.showToast('<?= $toastType ?>', '<?= $toastMessage ?>');
         </script>
     <?php endif; ?>
 

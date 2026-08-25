@@ -477,6 +477,7 @@ function get_app_channel_front_config(array $overrides = [])
         'installType' => 'PWA',
         'installUrl' => '',
     ];
+    // iOS usa installType "DESK" (Add to Home Screen), não "PWA".
     $iosDefaults = [
         'downloadBtn' => true,
         'guideInstall' => true,
@@ -486,7 +487,7 @@ function get_app_channel_front_config(array $overrides = [])
         'showGiftMaxAmount' => 0,
         'popupTime' => 'RECHARGE',
         'popupInterval' => '1',
-        'installType' => 'PWA',
+        'installType' => 'DESK',
         'installUrl' => '',
         'iosPackageId' => 0,
         'iosAddressType' => 'normal',

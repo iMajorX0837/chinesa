@@ -600,6 +600,7 @@ $assetVersion = time();
     <meta name="msapplication-tap-highlight" content="no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="/manifest.webmanifest.php">
     <meta name="apple-mobile-web-app-title" content="<?= htmlspecialchars($config['nome']) ?>" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="twitter:site" content="website">
@@ -607,6 +608,82 @@ $assetVersion = time();
     <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin="anonymous">
     <script src="https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js" defer="defer"></script>
     <script src="https://telegram.org/js/telegram-web-app.js?58"></script>
+    <script>
+    (function () {
+        var deferredPrompt = null;
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+            || ('standalone' in navigator && navigator.standalone);
+
+        function isWakeupInstallUrl(url) {
+            if (typeof url !== 'string') return false;
+            return url.indexOf('wakeup=true') !== -1
+                || (url.indexOf('sd=2') !== -1 && url.indexOf('domainType=') !== -1);
+        }
+
+        function promptPwaInstall() {
+            var prompt = deferredPrompt || window.__deferredPWAInstall;
+            if (!prompt) {
+                showAndroidPwaHint();
+                return Promise.resolve({ outcome: 'dismissed' });
+            }
+            prompt.prompt();
+            return prompt.userChoice;
+        }
+
+        function showAndroidPwaHint() {
+            if (document.getElementById('pwa-install-hint')) return;
+            var el = document.createElement('div');
+            el.id = 'pwa-install-hint';
+            el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+            el.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:320px;text-align:center;font-family:system-ui,sans-serif;">'
+                + '<p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#111;">Instalar app</p>'
+                + '<p style="margin:0 0 18px;font-size:14px;line-height:1.5;color:#444;">Toque no menu <strong>⋮</strong> do Chrome e escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.</p>'
+                + '<button type="button" style="padding:10px 24px;border:none;border-radius:8px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;">Entendi</button>'
+                + '</div>';
+            el.querySelector('button').onclick = function () { el.remove(); };
+            el.onclick = function (ev) { if (ev.target === el) el.remove(); };
+            document.body.appendChild(el);
+        }
+
+        window.__tryInstallPWA = promptPwaInstall;
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            window.__deferredPWAInstall = e;
+        });
+
+        if (!isStandalone) {
+            var nativeOpen = window.open;
+            window.open = function (url, target, features) {
+                if (isWakeupInstallUrl(url)) {
+                    promptPwaInstall();
+                    return null;
+                }
+                return nativeOpen.apply(window, arguments);
+            };
+        }
+
+        if ('serviceWorker' in navigator) {
+            var ua = navigator.userAgent || '';
+            if (/Android|Chrome/i.test(ua) && !/SamsungBrowser/i.test(ua)) {
+                navigator.serviceWorker.register('/sw.produce.min.2.1.6.js', { scope: '/' }).catch(function () {});
+            }
+        }
+
+        if (!isStandalone && isWakeupInstallUrl(location.href)) {
+            try {
+                var cleanUrl = new URL(location.href);
+                cleanUrl.searchParams.delete('wakeup');
+                if (cleanUrl.searchParams.get('sd') === '2' && cleanUrl.searchParams.get('domainType') === 'main') {
+                    cleanUrl.searchParams.delete('sd');
+                    cleanUrl.searchParams.delete('domainType');
+                }
+                history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+            } catch (err) {}
+        }
+    })();
+    </script>
     <script>
         // 判断是不是三星浏览器
         function isSamsungBrowser() {
@@ -628,7 +705,7 @@ $assetVersion = time();
             }
 
             // 如果没有匹配到上述条件，则不是三星浏览器
-            return 1248680527158;
+            return false;
         }
         //添加全局变量
         window.isSamsungBrowser = isSamsungBrowser

@@ -2,6 +2,7 @@
     'use strict';
 
     var deferredPrompt = null;
+    var installPending = false;
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches
         || ('standalone' in navigator && navigator.standalone);
     var isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -13,75 +14,69 @@
             || (url.indexOf('sd=2') !== -1 && url.indexOf('domainType=') !== -1);
     }
 
-    function isDesktop() {
-        return !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    function clearPrompt() {
+        deferredPrompt = null;
+        window.__deferredPWAInstall = null;
     }
 
-    function showInstallHint() {
-        if (document.getElementById('pwa-install-hint')) return;
-        var msg = isDesktop()
-            ? 'Clique no ícone <strong>Instalar</strong> (⊕) na barra de endereço do Chrome/Edge, ou abra o menu e escolha <strong>Instalar app</strong>.'
-            : 'Toque no menu <strong>⋮</strong> do Chrome e escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.';
-
-        var el = document.createElement('div');
-        el.id = 'pwa-install-hint';
-        el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-        el.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:340px;text-align:center;font-family:system-ui,sans-serif;">'
-            + '<p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#111;">Adicionar atalho</p>'
-            + '<p style="margin:0 0 18px;font-size:14px;line-height:1.5;color:#444;">' + msg + '</p>'
-            + '<button type="button" style="padding:10px 24px;border:none;border-radius:8px;background:#16a34a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Entendi</button>'
-            + '</div>';
-        el.querySelector('button').onclick = function () { el.remove(); };
-        el.onclick = function (ev) { if (ev.target === el) el.remove(); };
-        document.body.appendChild(el);
+    function markInstalled() {
+        try { localStorage.setItem('webAppInstalled', 'true'); } catch (e) {}
+        clearPrompt();
+        installPending = false;
     }
 
-    function runInstallPrompt() {
+    function openNativeInstallPrompt() {
         var prompt = deferredPrompt || window.__deferredPWAInstall;
-        if (prompt) {
-            prompt.prompt();
-            return prompt.userChoice.then(function (choice) {
-                if (choice.outcome === 'accepted') {
-                    try { localStorage.setItem('webAppInstalled', 'true'); } catch (e) {}
-                    deferredPrompt = null;
-                    window.__deferredPWAInstall = null;
-                }
-                return choice;
-            });
-        }
-        return new Promise(function (resolve) {
-            setTimeout(function () {
-                var latePrompt = deferredPrompt || window.__deferredPWAInstall;
-                if (latePrompt) {
-                    latePrompt.prompt();
-                    latePrompt.userChoice.then(resolve);
-                    return;
-                }
-                showInstallHint();
-                resolve({ outcome: 'dismissed' });
-            }, 600);
+        if (!prompt) return false;
+        prompt.prompt();
+        prompt.userChoice.then(function (choice) {
+            if (choice.outcome === 'accepted') {
+                markInstalled();
+            }
+        }).catch(function () {
+            installPending = false;
         });
+        return true;
     }
 
-    window.__tryInstallPWA = runInstallPrompt;
+    function requestInstall() {
+        if (isStandalone) return;
+        if (openNativeInstallPrompt()) return;
+
+        installPending = true;
+        var attempts = 0;
+        var timer = setInterval(function () {
+            attempts += 1;
+            if (openNativeInstallPrompt()) {
+                clearInterval(timer);
+                return;
+            }
+            if (attempts >= 24) {
+                installPending = false;
+                clearInterval(timer);
+            }
+        }, 250);
+    }
+
+    window.__tryInstallPWA = requestInstall;
 
     window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         deferredPrompt = e;
         window.__deferredPWAInstall = e;
+        if (installPending) {
+            installPending = false;
+            openNativeInstallPrompt();
+        }
     });
 
-    window.addEventListener('appinstalled', function () {
-        try { localStorage.setItem('webAppInstalled', 'true'); } catch (e) {}
-        deferredPrompt = null;
-        window.__deferredPWAInstall = null;
-    });
+    window.addEventListener('appinstalled', markInstalled);
 
     if (!isStandalone && !isIos) {
         var nativeOpen = window.open;
         window.open = function (url) {
             if (isWakeupInstallUrl(url)) {
-                runInstallPrompt();
+                requestInstall();
                 return null;
             }
             return nativeOpen.apply(window, arguments);
@@ -100,17 +95,14 @@
         }
         var node = el.closest ? (el.closest('button') || el.closest('a') || el) : el;
         var text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim();
-        if (text.length > 0 && text.length < 80 && /(instalar|baixar|download|atalho|add to home|install app)/i.test(text)) {
-            return true;
-        }
-        return false;
+        return text.length > 0 && text.length < 80
+            && /(instalar|baixar|download|install app|add to home)/i.test(text);
     }
 
     if (!isStandalone && !isIos) {
         document.addEventListener('click', function (e) {
-            var el = e.target;
             var matched = false;
-            for (var cur = el; cur && cur !== document.documentElement; cur = cur.parentElement) {
+            for (var cur = e.target; cur && cur !== document.documentElement; cur = cur.parentElement) {
                 if (isInstallClickTarget(cur)) {
                     matched = true;
                     break;
@@ -121,7 +113,7 @@
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            runInstallPrompt();
+            requestInstall();
         }, true);
     }
 

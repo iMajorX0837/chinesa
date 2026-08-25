@@ -601,6 +601,7 @@ $assetVersion = time();
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/manifest.webmanifest.php">
+    <script src="/assets/pwa-install.js?v=<?= $assetVersion ?>"></script>
     <meta name="apple-mobile-web-app-title" content="<?= htmlspecialchars($config['nome']) ?>" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="twitter:site" content="website">
@@ -608,7 +609,6 @@ $assetVersion = time();
     <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin="anonymous">
     <script src="https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js" defer="defer"></script>
     <script src="https://telegram.org/js/telegram-web-app.js?58"></script>
-    <script src="/assets/pwa-install.js?v=<?= $assetVersion ?>"></script>
     <script>
         // 判断是不是三星浏览器
         function isSamsungBrowser() {

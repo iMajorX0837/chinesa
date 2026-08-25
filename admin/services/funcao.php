@@ -461,3 +461,47 @@ function get_app_install_url($platform = 'android', $config = null)
     }
     return get_default_app_android_install_url();
 }
+
+/** Config de instalação do app (PWA em todas as plataformas). */
+function get_app_channel_front_config(array $overrides = [])
+{
+    $androidDefaults = [
+        'downloadBtn' => true,
+        'guideInstall' => true,
+        'popupType' => 'NORMAL',
+        'showGiftAmountType' => 0,
+        'showGiftAmount' => 0,
+        'showGiftMaxAmount' => 0,
+        'popupTime' => 'RECHARGE',
+        'popupInterval' => '1',
+        'installType' => 'PWA',
+        'installUrl' => '',
+    ];
+    $iosDefaults = [
+        'downloadBtn' => true,
+        'guideInstall' => true,
+        'popupType' => 'NORMAL',
+        'showGiftAmountType' => 0,
+        'showGiftAmount' => 0,
+        'showGiftMaxAmount' => 0,
+        'popupTime' => 'RECHARGE',
+        'popupInterval' => '1',
+        'installType' => 'PWA',
+        'installUrl' => '',
+        'iosPackageId' => 0,
+        'iosAddressType' => 'normal',
+    ];
+
+    $android = array_merge($androidDefaults, $overrides['android'] ?? []);
+    $ios = array_merge($iosDefaults, $overrides['ios'] ?? []);
+
+    return ['android' => $android, 'ios' => $ios];
+}
+
+function get_app_channel_front_config_json(array $overrides = [])
+{
+    return json_encode(
+        get_app_channel_front_config($overrides),
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+    );
+}

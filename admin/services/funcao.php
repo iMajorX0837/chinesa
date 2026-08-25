@@ -433,3 +433,31 @@ function validarCPF($cpf)
 
     return ($digitoCalculado1 == $digitoVerificador1 && $digitoCalculado2 == $digitoVerificador2);
 }
+
+/** URL padrão do APK Android (nome deve terminar em _ID.apk para o deep link panda_ID). */
+function get_default_app_android_install_url()
+{
+    return 'https://upload-us.f-1-q-h.com/s4/1248680527158/a89s.com_400015.apk';
+}
+
+/** Resolve installUrl do app com fallback quando link_app_* não está configurado. */
+function get_app_install_url($platform = 'android', $config = null)
+{
+    $key = ($platform === 'ios') ? 'link_app_ios' : 'link_app_android';
+    $url = '';
+    if (is_array($config) && array_key_exists($key, $config)) {
+        $url = trim((string)$config[$key]);
+    } else {
+        global $global_config;
+        if (is_array($global_config ?? null) && array_key_exists($key, $global_config)) {
+            $url = trim((string)$global_config[$key]);
+        }
+    }
+    if ($url !== '') {
+        return $url;
+    }
+    if ($platform === 'ios') {
+        return 'https://apps.apple.com/';
+    }
+    return get_default_app_android_install_url();
+}

@@ -37,19 +37,23 @@ function get_afiliados_config()
 function get_download_popup()
 {
     global $mysqli;
-    $qry = "SELECT baixar_ativado, topIconColor, topBgColor FROM config WHERE id = 1";
+    $qry = "SELECT baixar_ativado, topIconColor, topBgColor, link_app_android, link_app_ios FROM config WHERE id = 1";
     $result = mysqli_query($mysqli, $qry);
     if ($result && $row = mysqli_fetch_assoc($result)) {
         return [
             'baixar_ativado' => intval($row['baixar_ativado']),
             'topBgColor' => $row['topBgColor'] ?? '',
-            'topIconColor' => $row['topIconColor'] ?? ''
+            'topIconColor' => $row['topIconColor'] ?? '',
+            'link_app_android' => $row['link_app_android'] ?? '',
+            'link_app_ios' => $row['link_app_ios'] ?? '',
         ];
     }
     return [
         'baixar_ativado' => 0,
         'topBgColor' => '',
-        'topIconColor' => ''
+        'topIconColor' => '',
+        'link_app_android' => '',
+        'link_app_ios' => '',
     ];
 }
 
@@ -60,15 +64,19 @@ function update_config($data)
     $qry = $mysqli->prepare("UPDATE config SET 
         baixar_ativado = ?,
         topBgColor = ?,
-        topIconColor = ?
+        topIconColor = ?,
+        link_app_android = ?,
+        link_app_ios = ?
 
         WHERE id = 1");
 
     $qry->bind_param(
-           "sss",
+           "sssss",
     $data['baixar_ativado'],
     $data['topBgColor'],
-    $data['topIconColor']
+    $data['topIconColor'],
+    $data['link_app_android'],
+    $data['link_app_ios']
     );
     return $qry->execute();
 }
@@ -82,7 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       $data = [
         'baixar_ativado' => $_POST['baixar_ativado'],
         'topBgColor' => $_POST['topBgColor'],
-        'topIconColor' => $_POST['topIconColor']
+        'topIconColor' => $_POST['topIconColor'],
+        'link_app_android' => trim($_POST['link_app_android'] ?? ''),
+        'link_app_ios' => trim($_POST['link_app_ios'] ?? ''),
     ];
 
     if (update_config($data)) {
@@ -98,6 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 # Buscar os dados atuais
 $config = get_afiliados_config();
 $download_popup = get_download_popup();
+$defaultAndroidApk = get_default_app_android_install_url();
+$resolvedAndroidApk = get_app_install_url('android', $config);
+$resolvedIosUrl = get_app_install_url('ios', $config);
 ?>
 
 <head>
@@ -159,6 +172,22 @@ $download_popup = get_download_popup();
                                          </div>
                                          <div class="col-auto">
                                              <input type="text" class="form-control" id="topBgColor" name="topBgColor" value="<?= htmlspecialchars($download_popup['topBgColor'] ?? '') ?>" placeholder="#FFFFFF">
+                                         </div>
+                                     </div>
+
+                                     <div class="row mb-4">
+                                         <div class="col-12">
+                                             <label for="link_app_android" class="col-form-label fw-semibold">Link APK Android</label>
+                                             <input type="url" class="form-control" id="link_app_android" name="link_app_android" value="<?= htmlspecialchars($download_popup['link_app_android'] ?? '') ?>" placeholder="<?= htmlspecialchars($defaultAndroidApk) ?>">
+                                             <small class="text-muted">O arquivo APK deve terminar com <code>_ID.apk</code> (ex: <code>site_400015.apk</code>) para abrir o app com o scheme <code>panda_ID</code>. Em uso agora: <code><?= htmlspecialchars($resolvedAndroidApk) ?></code></small>
+                                         </div>
+                                     </div>
+
+                                     <div class="row mb-4">
+                                         <div class="col-12">
+                                             <label for="link_app_ios" class="col-form-label fw-semibold">Link App iOS</label>
+                                             <input type="url" class="form-control" id="link_app_ios" name="link_app_ios" value="<?= htmlspecialchars($download_popup['link_app_ios'] ?? '') ?>" placeholder="https://apps.apple.com/app/id...">
+                                             <small class="text-muted">Em uso agora: <code><?= htmlspecialchars($resolvedIosUrl) ?></code></small>
                                          </div>
                                      </div>
 

@@ -2,13 +2,103 @@
 if (!function_exists('admin_t')) {
     include_once "l.php";
 }
+
+if (!function_exists('admin_nav_current_slug')) {
+    function admin_nav_current_slug() {
+        static $slug = null;
+        if ($slug !== null) {
+            return $slug;
+        }
+
+        $file_slugs = [
+            'index' => 'dashboard',
+            'pixeis' => 'pixel',
+            'ge-nomes' => 'gerenciamento-nomes',
+            'ge-cupons' => 'cupons',
+            'ge-vips' => 'niveis',
+            'editar-banners' => 'banners',
+            'editar-popups' => 'popups',
+            'editar-festival' => 'festival',
+            'editar-floats' => 'iconesfloat',
+            'editar-promocoes' => 'promocoes',
+            'editar-mensagens' => 'mensagens',
+            'imagens-plataforma' => 'identidade-visual',
+            'contasdemos' => 'contas-demos',
+            'historico_jogadas' => 'historicosplay',
+            'logs_cupons' => 'logsbonus',
+            'logs_niveis' => 'niveislogs',
+            'webhook' => 'webhooks',
+            'popup-baixar' => 'baixarpop',
+            'beeplay' => 'gamesbeeplay',
+            'pfiverapi' => 'chavesplayfiver',
+            'detalhes_usuario' => 'usuarios',
+            'checkin_config' => 'checkin',
+        ];
+
+        $script = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
+        if ($script !== '' && isset($file_slugs[$script])) {
+            return $slug = $file_slugs[$script];
+        }
+
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+        $parts = array_values(array_filter(explode('/', trim($path, '/'))));
+        $last = $parts ? end($parts) : '';
+        $last = preg_replace('/\.php$/', '', $last);
+
+        if ($last === 'admin' || $last === '') {
+            return $slug = 'dashboard';
+        }
+        if (isset($file_slugs[$last])) {
+            return $slug = $file_slugs[$last];
+        }
+
+        return $slug = ($last ?: ($file_slugs[$script] ?? $script ?: 'dashboard'));
+    }
+
+    function admin_nav_is($slugs) {
+        return in_array(admin_nav_current_slug(), (array) $slugs, true);
+    }
+
+    function admin_nav_link_class($slugs) {
+        return admin_nav_is($slugs) ? ' active' : '';
+    }
+
+    function admin_nav_collapse_class($slugs) {
+        return admin_nav_is($slugs) ? ' collapse show' : ' collapse';
+    }
+
+    function admin_nav_expanded($slugs) {
+        return admin_nav_is($slugs) ? 'true' : 'false';
+    }
+}
+
+$nav_settings_pages = [
+    'configuracoes', 'baus', 'gerenciamento-afiliados', 'gateway', 'chavespix', 'niveis',
+    'checklist', 'checkin', 'cupons', 'gerenciamento-nomes', 'atendimento', 'baixarpop',
+    'alterapainel', 'webhooks', 'pixel', 'roleta_boas_vindas', 'roleta', 'envelope_vermelho',
+    'mensagens', 'tutorial',
+];
+$nav_temas_pages = [
+    'identidade-visual', 'modal', 'banners', 'promocoes', 'temas', 'iconesfloat',
+    'popups', 'festival', 'jackpot', 'notificacoes',
+];
+$nav_depositos_pages = ['depositos_pagos', 'depositos_pendentes', 'depositos_expirados'];
+$nav_saques_pages = ['saques_aprovados', 'saques_pendentes', 'saques_recusados'];
+$nav_saques_aff_pages = ['saques_afiliados_aprovados', 'saques_afiliados_pendentes', 'saques_afiliados_recusados'];
+$nav_users_pages = ['usuarios', 'afiliados', 'contas-demos', 'administradores'];
+$nav_historicos_pages = ['historicosplay', 'logsbonus', 'niveislogs'];
+$nav_api_pages = ['api', 'jogos', 'provedores', 'chavesplayfiver', 'gamesplayfiver', 'gamesbeeplay', 'igamewinjogos'];
 ?>
 <div class="startbar d-print-none">
     <style>
         .startbar{position:fixed;top:0;left:0;height:100vh;width:230px;background:#ffffff;border-right:1px solid #e5e7eb;box-shadow:0 0 30px rgba(15,23,42,.06);z-index:1040;display:flex;flex-direction:column}
         .startbar .brand{padding:18px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;background:#fff}
         .startbar .logo-sm{max-height:40px;object-fit:contain}
-        .startbar-menu{flex:1;overflow:auto;padding:8px 10px}
+        .startbar-menu{flex:1;overflow:auto;padding:8px 10px;scrollbar-width:none;-ms-overflow-style:none}
+        .startbar-menu::-webkit-scrollbar{display:none;width:0;height:0}
+        .startbar .simplebar-content-wrapper{scrollbar-width:none;-ms-overflow-style:none}
+        .startbar .simplebar-content-wrapper::-webkit-scrollbar{display:none;width:0;height:0}
+        .startbar .simplebar-track{display:none!important}
         .startbar-footer-card{padding:8px 10px 12px}
         .startbar .menu-label{padding:12px 4px 4px}
         .startbar .menu-label span{display:block;font-size:10px;font-weight:600;letter-spacing:.08em;color:#94a3b8}
@@ -23,6 +113,9 @@ if (!function_exists('admin_t')) {
         .startbar .trail{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
         .startbar .chev{font-size:14px;color:#94a3b8;transition:transform .2s ease}
         .startbar .nav-link[aria-expanded="true"] .chev{transform:rotate(90deg);color:var(--bs-primary)}
+        .startbar .nav-link.active{background:#dbeafe;color:#1e40af;font-weight:600;border-radius:8px}
+        .startbar .nav-link.active .menu-icon,.startbar .nav-link.active>i:not(.chev){color:var(--bs-primary)!important}
+        html[data-bs-theme=dark] .startbar .nav-link.active{background:rgba(93,135,255,.18)!important;color:#fff!important;font-weight:600}
         .startbar .border-dashed-bottom{border-bottom:1px dashed #e5e7eb;margin:10px 4px}
         body.startbar-open{padding-left:230px}
         .startbar-overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:1035;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease}
@@ -92,7 +185,7 @@ if (!function_exists('admin_t')) {
                         <span><?= admin_t('menu_reports') ?></span>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="dashboard">
+                        <a class="nav-link<?= admin_nav_link_class('dashboard') ?>" href="dashboard">
                             <i class="iconoir-home-simple menu-icon"></i>
                             <span><?= admin_t('menu_dashboard') ?></span>
                         </a>
@@ -110,11 +203,11 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#sidebarMaps" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="sidebarMaps">
+                            aria-expanded="<?= admin_nav_expanded($nav_settings_pages) ?>" aria-controls="sidebarMaps">
                             <i class="iconoir-html5 menu-icon"></i>
                             <span><?= admin_t('menu_settings') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i></span>
                         </a>
-                        <div class="collapse " id="sidebarMaps">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_settings_pages)) ?>" id="sidebarMaps">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="configuracoes"><i class="ti ti-settings"></i><span><?= admin_t('menu_values') ?></span></a>
@@ -182,11 +275,11 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#temas" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="temas">
+                            aria-expanded="<?= admin_nav_expanded($nav_temas_pages) ?>" aria-controls="temas">
                             <i class="iconoir-design-pencil menu-icon"></i>
                             <span><?= admin_t('menu_customization') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i><span class="badge rounded text-danger bg-danger-subtle">(new)</span></span>
                         </a>
-                        <div class="collapse " id="temas">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_temas_pages)) ?>" id="temas">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="identidade-visual"><i class="ti ti-photo"></i><span><?= admin_t('menu_platform_images') ?></span></a>
@@ -217,12 +310,6 @@ if (!function_exists('admin_t')) {
                             
                             <ul class="nav flex-column">
                                 <li class="nav-item">
-                                    <a class="nav-link" href="linguagens"><i class="ti ti-language"></i><span><?= admin_t('menu_languages') ?></span></a>
-                                </li>
-                            </ul>
-                            
-                            <ul class="nav flex-column">
-                                <li class="nav-item">
                                     <a class="nav-link" href="iconesfloat"><i class="ti ti-pin"></i><span><?= admin_t('menu_float_icons') ?></span></a>
                                 </li>
                             </ul>
@@ -236,12 +323,6 @@ if (!function_exists('admin_t')) {
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="jackpot"><i class="ti ti-trophy"></i><span><?= admin_t('menu_jackpot') ?></span></a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="numeros-jackpot"><i class="ti ti-hash"></i><span><?= admin_t('menu_jackpot_numbers') ?></span></a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="jogo-imagem"><i class="ti ti-photo-plus"></i><span><?= admin_t('menu_game_images') ?></span></a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="notificacoes"><i class="ti ti-bell"></i><span><?= admin_t('menu_general_notifications') ?></span></a>
@@ -281,11 +362,11 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#sidebarElements" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="sidebarElements">
+                            aria-expanded="<?= admin_nav_expanded($nav_depositos_pages) ?>" aria-controls="sidebarElements">
                             <i class="iconoir-receive-dollars menu-icon"></i>
                             <span><?= admin_t('menu_deposits') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i><span class="badge rounded text-warning bg-warning-subtle"><?= $total_depositos; ?></span></span>
                         </a>
-                        <div class="collapse " id="sidebarElements">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_depositos_pages)) ?>" id="sidebarElements">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="depositos_pagos"><i class="ti ti-circle-check"></i><span><?= admin_t('menu_paid') ?></span> <span class="badge rounded text-success bg-success-subtle ms-1"><?= $total_depositos_aprovados; ?></span>
@@ -343,14 +424,14 @@ if (!function_exists('admin_t')) {
                     $total_saques_afiliados = $total_saques_afiliados_pendentes + $total_saques_afiliados_aprovados + $total_saques_afiliados_recusados;
                     ?>
 
-                    <li class="nav-item" style="background-color: rgba(255, 255, 255, 0.04); border-radius: 8px; margin:2px;">
+                    <li class="nav-item">
                         <a class="nav-link" href="#sidebarAdvancedUI" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="sidebarAdvancedUI">
+                            aria-expanded="<?= admin_nav_expanded($nav_saques_pages) ?>" aria-controls="sidebarAdvancedUI">
                             <i class="iconoir-send-dollars menu-icon"></i>
                             <span><?= admin_t('menu_withdrawals') ?></span>
                             <span class="trail"><i class="ti ti-chevron-right chev"></i><span class="badge rounded text-warning bg-warning-subtle"><?= $total_saques; ?></span></span>
                         </a>
-                        <div class="collapse" id="sidebarAdvancedUI">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_saques_pages)) ?>" id="sidebarAdvancedUI">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="saques_aprovados"><i class="ti ti-circle-check"></i><span><?= admin_t('menu_paid') ?></span>
@@ -373,12 +454,12 @@ if (!function_exists('admin_t')) {
 
                     <li class="nav-item">
                         <a class="nav-link" href="#sidebarAffiliateWithdrawals" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="sidebarAffiliateWithdrawals">
+                            aria-expanded="<?= admin_nav_expanded($nav_saques_aff_pages) ?>" aria-controls="sidebarAffiliateWithdrawals">
                             <i class="iconoir-hand-cash menu-icon"></i>
                             <span><?= admin_t('menu_affiliate_withdrawals') ?></span>
                             <span class="trail"><i class="ti ti-chevron-right chev"></i><span class="badge rounded text-warning bg-warning-subtle"><?= $total_saques_afiliados; ?></span></span>
                         </a>
-                        <div class="collapse" id="sidebarAffiliateWithdrawals">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_saques_aff_pages)) ?>" id="sidebarAffiliateWithdrawals">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="saques_afiliados_aprovados"><i class="ti ti-circle-check"></i><span><?= admin_t('menu_paid') ?></span>
@@ -411,11 +492,11 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#sidebarForms" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="sidebarForms">
+                            aria-expanded="<?= admin_nav_expanded($nav_users_pages) ?>" aria-controls="sidebarForms">
                             <i class="iconoir-community menu-icon"></i>
                             <span><?= admin_t('users') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i></span>
                         </a>
-                        <div class="collapse " id="sidebarForms">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_users_pages)) ?>" id="sidebarForms">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="usuarios"><i class="ti ti-users"></i><span><?= admin_t('menu_all_users') ?></span></a>
@@ -432,28 +513,6 @@ if (!function_exists('admin_t')) {
                             </ul>
                         </div>
                     </li>
-
-                    <?php
-                    $query_feedbacks_pendentes = "SELECT COUNT(*) as total_pendentes FROM customer_feedback WHERE status = 'pending'";
-                    $result_feedbacks_pendentes = mysqli_query($mysqli, $query_feedbacks_pendentes);
-                    $row_feedbacks_pendentes = mysqli_fetch_assoc($result_feedbacks_pendentes);
-                    $total_feedbacks_pendentes = $row_feedbacks_pendentes['total_pendentes'];
-                    
-                    $query_feedbacks_total = "SELECT COUNT(*) as total FROM customer_feedback";
-                    $result_feedbacks_total = mysqli_query($mysqli, $query_feedbacks_total);
-                    $row_feedbacks_total = mysqli_fetch_assoc($result_feedbacks_total);
-                    $total_feedbacks = $row_feedbacks_total['total'];
-                    ?>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="feedbacks">
-                            <i class="iconoir-message-text menu-icon"></i>
-                            <span><?= admin_t('menu_feedbacks') ?></span>
-                            <?php if ($total_feedbacks_pendentes > 0): ?>
-                            <span class="trail"><span class="badge rounded text-warning bg-warning-subtle"><?= $total_feedbacks_pendentes; ?></span></span>
-                            <?php endif; ?>
-                        </a>
-                    </li>
                     
                     <li class="menu-label mt-2">
                         <small class="label-border">
@@ -465,10 +524,10 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#historicos" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="historicos">
+                            aria-expanded="<?= admin_nav_expanded($nav_historicos_pages) ?>" aria-controls="historicos">
                             <span><?= admin_t('menu_histories') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i></span>
                         </a>
-                        <div class="collapse " id="historicos">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_historicos_pages)) ?>" id="historicos">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="historicosplay"><i class="ti ti-device-gamepad-2"></i><span><?= admin_t('menu_bets') ?></span></a>
@@ -495,11 +554,11 @@ if (!function_exists('admin_t')) {
                     
                     <li class="nav-item">
                         <a class="nav-link" href="#chavesapi" data-bs-toggle="collapse" role="button"
-                            aria-expanded="false" aria-controls="chavesapi">
+                            aria-expanded="<?= admin_nav_expanded($nav_api_pages) ?>" aria-controls="chavesapi">
                             <i class="iconoir-key-plus menu-icon"></i>
                             <span><?= admin_t('menu_api_games') ?></span><span class="trail"><i class="ti ti-chevron-right chev"></i></span>
                         </a>
-                        <div class="collapse " id="chavesapi">
+                        <div class="<?= trim(admin_nav_collapse_class($nav_api_pages)) ?>" id="chavesapi">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
                                     <a class="nav-link" href="api"><i class="ti ti-shield-lock"></i><span><?= admin_t('menu_credentials') ?></span></a>
@@ -535,6 +594,47 @@ if (!function_exists('admin_t')) {
             </div>
         </div>
     </div>
+
+    <script>
+        (function(){
+            var slugMap={
+                index:'dashboard',pixeis:'pixel','ge-nomes':'gerenciamento-nomes','ge-cupons':'cupons','ge-vips':'niveis',
+                'editar-banners':'banners','editar-popups':'popups','editar-festival':'festival','editar-floats':'iconesfloat',
+                'editar-promocoes':'promocoes','editar-mensagens':'mensagens','imagens-plataforma':'identidade-visual',
+                contasdemos:'contas-demos',historico_jogadas:'historicosplay',logs_cupons:'logsbonus',logs_niveis:'niveislogs',
+                webhook:'webhooks','popup-baixar':'baixarpop',beeplay:'gamesbeeplay',pfiverapi:'chavesplayfiver',
+                detalhes_usuario:'usuarios',checkin_config:'checkin'
+            };
+            function highlightStartbarNav(){
+                var path=window.location.pathname.replace(/\/+$/,'');
+                var slug=(path.split('/').pop()||'').replace(/\.php$/,'')||'dashboard';
+                if(slugMap[slug])slug=slugMap[slug];
+                if(slug==='admin'||slug==='')slug='dashboard';
+
+                document.querySelectorAll('.startbar a.nav-link[href]').forEach(function(link){
+                    var href=(link.getAttribute('href')||'').split('?')[0];
+                    if(!href||href.charAt(0)==='#')return;
+                    var linkSlug=href.split('/').pop();
+                    if(linkSlug!==slug)return;
+
+                    link.classList.add('active');
+
+                    var panel=link.closest('.collapse');
+                    if(!panel)return;
+
+                    panel.classList.add('show');
+                    panel.style.height='auto';
+
+                    var toggle=document.querySelector('.startbar a.nav-link[href="#'+panel.id+'"]');
+                    if(!toggle)return;
+
+                    toggle.setAttribute('aria-expanded','true');
+                });
+            }
+
+            highlightStartbarNav();
+        })();
+    </script>
     
 </div>
 <div class="startbar-overlay d-print-none"></div>

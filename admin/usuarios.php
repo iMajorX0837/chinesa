@@ -43,6 +43,19 @@ include_once "validar_2fa.php";
     $limit = 50;
     $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
     $offset = ($page - 1) * $limit;
+    $sort_recent = isset($_GET['recent']) && $_GET['recent'] === '1';
+    $order_by = $sort_recent ? 'data_registro DESC, id DESC' : 'id DESC';
+
+    $usuarios_query_params = [];
+    if (!empty($search_query)) {
+        $usuarios_query_params['search'] = $search_query;
+    }
+    if (isset($_GET['status']) && $_GET['status'] !== '') {
+        $usuarios_query_params['status'] = $_GET['status'];
+    }
+    if ($sort_recent) {
+        $usuarios_query_params['recent'] = '1';
+    }
 
     $query_total_usuarios = "SELECT COUNT(*) AS total_usuarios FROM usuarios WHERE 1=1 $statusaff_filter";
     if (!empty($search_query)) {
@@ -59,31 +72,21 @@ include_once "validar_2fa.php";
         $query_usuarios .= " AND (id LIKE '%$search_query%' OR mobile LIKE '%$search_query%')";
     }
     
-    $query_usuarios .= " ORDER BY id DESC LIMIT $limit OFFSET $offset";
+    $query_usuarios .= " ORDER BY $order_by LIMIT $limit OFFSET $offset";
     $result_usuarios = mysqli_query($mysqli, $query_usuarios);
+
+    $recent_toggle_params = $usuarios_query_params;
+    if ($sort_recent) {
+        unset($recent_toggle_params['recent']);
+    } else {
+        $recent_toggle_params['recent'] = '1';
+    }
+    $recent_toggle_query = http_build_query($recent_toggle_params);
     ?>
 
     <div class="page-wrapper">
         <div class="page-content">
             <div class="container-xxl">
-                
-                <!-- Header -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card bg-primary">
-                            <div class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col">
-                                        <h4 class="card-title text-white mb-0">Todos Usuários (<?= $total_usuarios; ?> no total)</h4>
-                                    </div>
-                                    <div class="col text-end">
-                                        <a href="export/exportar_usuarios.php" class="btn btn-light text-primary">Exportar Dados</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Stats Overview -->
                 <div class="row">
@@ -136,6 +139,9 @@ include_once "validar_2fa.php";
                 <div class="card">
                     <div class="card-body">
                         <form method="GET" action="">
+                            <?php if ($sort_recent): ?>
+                                <input type="hidden" name="recent" value="1">
+                            <?php endif; ?>
                             <div class="row mb-3">
                                 <div class="col-md-4">
                                     <input type="text" name="search" class="form-control"
@@ -162,6 +168,16 @@ include_once "validar_2fa.php";
                                     <tr>
                                         <th><?= admin_t('table_id') ?></th>
                                         <th><?= admin_t('table_user') ?></th>
+                                        <th>
+                                            <div class="d-flex align-items-center justify-content-center gap-1">
+                                                <span><?= admin_t('table_registered_at') ?></span>
+                                                <a href="?<?= htmlspecialchars($recent_toggle_query) ?>"
+                                                   class="text-decoration-none <?= $sort_recent ? 'text-primary' : 'text-muted' ?>"
+                                                   title="<?= admin_t('users_recent_btn_help') ?>">
+                                                    <i class="ti ti-clock"></i>
+                                                </a>
+                                            </div>
+                                        </th>
                                         <th><?= admin_t('table_balance') ?></th>
                                         <th><?= admin_t('table_deposited') ?></th>
                                         <th><?= admin_t('table_withdrawn') ?></th>
@@ -173,7 +189,6 @@ include_once "validar_2fa.php";
                                             <i class="fa fa-info-circle text-info info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= admin_t('users_demo_mode_help') ?>"></i>
                                         </th>
                                         <th><?= admin_t('users_individual_rtp') ?></th>
-                                        <th class="text-end"><?= admin_t('table_details') ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -210,10 +225,18 @@ include_once "validar_2fa.php";
                                             // Obter valores de modo_demo e rtp_individual
                                             $modo_demo = $usuario['modo_demo'] ?? 0;
                                             $rtp_individual = $usuario['rtp_individual'] ?? 95;
+                                            $detalhes_url = $painel_adm_ver_usuarios . encodeAll($usuario['id']);
                                             ?>
                                             <tr>
-                                                <td class="text-center text-nowrap"><?= $usuario['id']; ?></td>
+                                                <td class="text-center text-nowrap">
+                                                    <a href="<?= $detalhes_url; ?>" class="text-primary fw-semibold text-decoration-none" title="<?= admin_t('table_details') ?>">
+                                                        <?= $usuario['id']; ?>
+                                                    </a>
+                                                </td>
                                                 <td><?= htmlspecialchars($usuario['mobile']); ?></td>
+                                                <td class="text-center text-nowrap text-xs">
+                                                    <?= !empty($usuario['data_registro']) ? ver_data($usuario['data_registro']) : '—'; ?>
+                                                </td>
                                                 <td class="text-center text-nowrap">R$ <?= number_format($usuario['saldo'], 2, ',', '.'); ?></td>
                                                 <td class="text-center text-nowrap">R$ <?= number_format($depositado, 2, ',', '.'); ?></td>
                                                 <td class="text-center text-nowrap">R$ <?= number_format($sacado, 2, ',', '.'); ?></td>
@@ -244,12 +267,6 @@ include_once "validar_2fa.php";
                                                                data-mobile="<?= htmlspecialchars($usuario['mobile']); ?>">
                                                     </div>
                                                 </td>
-                                                <td class="text-end">
-                                                    <a class="btn btn-sm btn-primary" title="<?= admin_t('table_details') ?>"
-                                                       href="<?= $painel_adm_ver_usuarios . encodeAll($usuario['id']); ?>">
-                                                        <i class="ti ti-arrow-up-right"></i>
-                                                    </a>
-                                                </td>
                                             </tr>
                                         <?php
                                         }
@@ -267,7 +284,7 @@ include_once "validar_2fa.php";
                                 <ul class="pagination justify-content-center mt-3">
                                     <?php if ($page > 1): ?>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page=<?= $page - 1 ?><?= !empty($search_query) ? '&search=' . urlencode($search_query) : '' ?><?= isset($_GET['status']) ? '&status=' . $_GET['status'] : '' ?>" aria-label="Anterior">
+                                            <a class="page-link" href="?<?= htmlspecialchars(http_build_query(array_merge($usuarios_query_params, ['page' => $page - 1]))) ?>" aria-label="Anterior">
                                                 <span aria-hidden="true">&laquo;</span>
                                             </a>
                                         </li>
@@ -280,13 +297,13 @@ include_once "validar_2fa.php";
                                     for ($i = $start_page; $i <= $end_page; $i++): 
                                     ?>
                                         <li class="page-item <?= ($i == $page) ? 'active' : '' ?>">
-                                            <a class="page-link" href="?page=<?= $i ?><?= !empty($search_query) ? '&search=' . urlencode($search_query) : '' ?><?= isset($_GET['status']) ? '&status=' . $_GET['status'] : '' ?>"><?= $i ?></a>
+                                            <a class="page-link" href="?<?= htmlspecialchars(http_build_query(array_merge($usuarios_query_params, ['page' => $i]))) ?>"><?= $i ?></a>
                                         </li>
                                     <?php endfor; ?>
 
                                     <?php if ($page < $total_pages): ?>
                                         <li class="page-item">
-                                            <a class="page-link" href="?page=<?= $page + 1 ?><?= !empty($search_query) ? '&search=' . urlencode($search_query) : '' ?><?= isset($_GET['status']) ? '&status=' . $_GET['status'] : '' ?>" aria-label="Próximo">
+                                            <a class="page-link" href="?<?= htmlspecialchars(http_build_query(array_merge($usuarios_query_params, ['page' => $page + 1]))) ?>" aria-label="Próximo">
                                                 <span aria-hidden="true">&raquo;</span>
                                             </a>
                                         </li>

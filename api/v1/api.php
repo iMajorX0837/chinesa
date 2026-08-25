@@ -1365,7 +1365,7 @@ if ($path === '/api/frontend/trpc/registerReward.info') {
                 "popupTime" => "HOME",
                 "popupInterval" => "0",
                 "installType" => "PWA+APK",
-                "installUrl" => "https://upload-us.f-1-q-h.com/s4/1248680527158/a89s.com_400015.apk" 
+                "installUrl" => get_app_install_url('android')
             ],
             "ios" => [
                 "downloadBtn" => false,
@@ -1377,7 +1377,7 @@ if ($path === '/api/frontend/trpc/registerReward.info') {
                 "popupTime" => "HOME",
                 "popupInterval" => "0",
                 "installType" => "APPSTORE",
-                "installUrl" => "https://apps.apple.com/",
+                "installUrl" => get_app_install_url('ios'),
                 "iosPackageId" => 0,
                 "iosAddressType" => "normal"
             ]
@@ -1775,9 +1775,33 @@ if ($path === '/api/frontend/trpc/channel.info') {
              "pointType" => "Facebook",
              "domainId" => 0,
              "frontConfig" => json_encode([
-                 "android" => ["downloadBtn" => true, "installUrl" => getConf('link_app_android', '')],
-                 "ios" => ["downloadBtn" => true, "installUrl" => getConf('link_app_ios', '')]
-             ])
+                 "android" => [
+                     "downloadBtn" => true,
+                     "guideInstall" => true,
+                     "popupType" => "NORMAL",
+                     "showGiftAmountType" => 0,
+                     "showGiftAmount" => 0,
+                     "showGiftMaxAmount" => 0,
+                     "popupTime" => "RECHARGE",
+                     "popupInterval" => "1",
+                     "installType" => "PWA+APK",
+                     "installUrl" => get_app_install_url('android')
+                 ],
+                 "ios" => [
+                     "downloadBtn" => true,
+                     "guideInstall" => true,
+                     "popupType" => "NORMAL",
+                     "showGiftAmountType" => 0,
+                     "showGiftAmount" => 0,
+                     "showGiftMaxAmount" => 0,
+                     "popupTime" => "RECHARGE",
+                     "popupInterval" => "1",
+                     "installType" => "APPSTORE",
+                     "installUrl" => get_app_install_url('ios'),
+                     "iosPackageId" => 0,
+                     "iosAddressType" => "normal"
+                 ]
+             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         ]
     ];
     sendTrpcResponse($response);

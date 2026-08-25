@@ -103,6 +103,37 @@ try {
     error_log("Erro ao buscar configurações: " . $e->getMessage());
 }
 
+$linkAppAndroid = get_app_install_url('android', $config);
+$linkAppIos = get_app_install_url('ios', $config);
+$channelFrontConfig = json_encode([
+    'android' => [
+        'downloadBtn' => true,
+        'guideInstall' => true,
+        'popupType' => 'NORMAL',
+        'showGiftAmountType' => 0,
+        'showGiftAmount' => 0,
+        'showGiftMaxAmount' => 0,
+        'popupTime' => 'RECHARGE',
+        'popupInterval' => '1',
+        'installType' => 'PWA+APK',
+        'installUrl' => $linkAppAndroid,
+    ],
+    'ios' => [
+        'downloadBtn' => true,
+        'guideInstall' => true,
+        'popupType' => 'NORMAL',
+        'showGiftAmountType' => 0,
+        'showGiftAmount' => 0,
+        'showGiftMaxAmount' => 0,
+        'popupTime' => 'RECHARGE',
+        'popupInterval' => '1',
+        'installType' => 'APPSTORE',
+        'installUrl' => $linkAppIos,
+        'iosPackageId' => 0,
+        'iosAddressType' => 'normal',
+    ],
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
 $language = isset($config['language']) && $config['language'] !== '' ? $config['language'] : 'pt-BR';
 $phoneCode = isset($config['phoneCode']) && $config['phoneCode'] !== '' ? $config['phoneCode'] : '+55';
 $currency = isset($config['currency']) && $config['currency'] !== '' ? $config['currency'] : 'BRL';
@@ -291,7 +322,7 @@ $assetVersion = time();
                                 "pointType": "Facebook",
                                 "pointParams": "",
                                 "domainId": 0,
-                                "frontConfig": "{\"android\":{\"downloadBtn\":true,\"guideInstall\":true,\"popupType\":\"NORMAL\",\"showGiftAmountType\":0,\"showGiftAmount\":0,\"showGiftMaxAmount\":0,\"popupTime\":\"RECHARGE\",\"popupInterval\":\"1\",\"installType\":\"PWA+APK\",\"installUrl\":\"<?= $config['link_app_android'] ?>\"},\"ios\":{\"downloadBtn\":true,\"guideInstall\":true,\"popupType\":\"NORMAL\",\"showGiftAmountType\":0,\"showGiftAmount\":0,\"showGiftMaxAmount\":0,\"popupTime\":\"RECHARGE\",\"popupInterval\":\"1\",\"installType\":\"APPSTORE\",\"installUrl\":\"<?= $config['link_app_ios'] ?>\",\"iosPackageId\":0,\"iosAddressType\":\"normal\"}}",
+                                "frontConfig": <?= json_encode($channelFrontConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
                                 "isInstallSendMoney": false,
                                 "installSendMoneyType": "OFF",
                                 "installSendMoney": 0,

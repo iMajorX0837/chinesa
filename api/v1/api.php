@@ -131,6 +131,37 @@ if ($onlinePingPath === '/api/v1/online_ping' || $onlinePingPath === '/api/v1/on
 }
 $WG_BUCKET_SITE = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") .
     "://" . $_SERVER['HTTP_HOST'];
+$promoContentPath = is_string($path) ? rtrim($path, '/') : '';
+if ($promoContentPath === '/api/v1/promo-content' || preg_match('#/promo-content$#', (string)$promoContentPath)) {
+    $rotaEncontrada = true;
+    $promoId = (int)($_GET['id'] ?? 0);
+    $promoText = '';
+    if ($promoId > 0) {
+        $promoStmt = $mysqli->prepare("SELECT titulo, img FROM promocoes WHERE id = ? AND status = 1 LIMIT 1");
+        if ($promoStmt) {
+            $promoStmt->bind_param("i", $promoId);
+            $promoStmt->execute();
+            $promoRes = $promoStmt->get_result();
+            if ($promoRow = $promoRes->fetch_assoc()) {
+                $imgUrl = $promoRow['img'] ?? '';
+                if (!empty($imgUrl) && strpos($imgUrl, 'http') !== 0) {
+                    $imgUrl = $WG_BUCKET_SITE . '/uploads/' . $imgUrl;
+                }
+                $promoText = $promoRow['titulo'] ?? '';
+                if (!empty($imgUrl)) {
+                    $promoText .= "\n\n![promo](" . $imgUrl . ")";
+                }
+            }
+            $promoStmt->close();
+        }
+    }
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    header('Content-Type: text/plain; charset=utf-8');
+    echo $promoText;
+    exit;
+}
 function guessImageMimeFromBytes($bytes, $url = '') {
     if (strncmp($bytes, "\x89PNG", 4) === 0) return 'image/png';
     if (strncmp($bytes, "\xFF\xD8\xFF", 3) === 0) return 'image/jpeg';
@@ -2822,12 +2853,20 @@ if ($path === '/api/frontend/trpc/activity.list' || $path === '/api/frontend/trp
             if (!empty($imgUrl) && strpos($imgUrl, 'http') !== 0) {
                 $imgUrl = $WG_BUCKET_SITE . '/uploads/' . $imgUrl;
             }
+            $promoContentUrl = $WG_BUCKET_SITE . '/api/v1/promo-content?id=' . (int)$row['id'];
+            $promoCondition = json_encode([
+                'uuid' => '',
+                'content' => $promoContentUrl,
+                'isShowApply' => false,
+                'jumpType' => 'DETAIL',
+                'target' => ['type' => 'external', 'targetValue' => ''],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $finalList[] = [
                 'id' => $row['id'],
                 'name' => $row['titulo'],
                 'nameType' => 'CUSTOM',
                 'nameParams' => '{"key":"value"}',
-                'condition' => '{"jumpType":"LINK"}',
+                'condition' => $promoCondition,
                 'category' => 'all',
                 'type' => 'Custom',
                 'bannerBackground' => $imgUrl,
@@ -3345,6 +3384,33 @@ if ($path === '/api/frontend/trpc/activity.activityDetail' || $path === '/api/fr
         ];
         sendTrpcResponse($response);
     } else {
+        if ($type === 'Custom' && $activityId > 0) {
+            $promoStmt = $mysqli->prepare("SELECT id, titulo FROM promocoes WHERE id = ? AND status = 1 LIMIT 1");
+            $promoRow = null;
+            if ($promoStmt) {
+                $promoStmt->bind_param("i", $activityId);
+                $promoStmt->execute();
+                $promoRes = $promoStmt->get_result();
+                $promoRow = $promoRes->fetch_assoc();
+                $promoStmt->close();
+            }
+            if ($promoRow) {
+                $contentUrl = $WG_BUCKET_SITE . '/api/v1/promo-content?id=' . (int)$promoRow['id'];
+                sendTrpcResponse([
+                    'content' => $contentUrl,
+                    'isShowApply' => false,
+                    'multilingual' => [
+                        'rule' => '',
+                        'ruleType' => 'DEFAULT',
+                        'name' => $promoRow['titulo'],
+                        'nameType' => 'CUSTOM',
+                        'nameParams' => '{"key":"value"}',
+                        'previewText' => '',
+                        'activityDetailSelect' => null,
+                    ],
+                ]);
+            }
+        }
         $user = getCurrentUser($mysqli);
         if ($user) {
             $config_qry = "SELECT niveisbau, qntsbaus, pessoasbau FROM config WHERE id=1";

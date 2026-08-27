@@ -650,9 +650,16 @@ $assetVersion = time();
             });
         }
     </script>
+    <script>
+        var __VUE_I18N_LEGACY_API__ = false;
+        var __VUE_I18N_FULL_INSTALL__ = true;
+        var __INTLIFY_JIT_COMPILATION__ = false;
+        var __INTLIFY_DROP_MESSAGE_COMPILER__ = false;
+        var __INTLIFY_PROD_DEVTOOLS__ = false;
+    </script>
     <script type="module" crossorigin src="/assets/index-T2Rmfk75.js?v=10"></script>
     <link rel="modulepreload" crossorigin href="/assets/index-T2Rmfk75.js?v=10">
-    <link rel="modulepreload" crossorigin href="/assets/vendor_modules-Bo-19cQw.js?v=9">
+    <link rel="modulepreload" crossorigin href="/assets/vendor_modules-Bo-19cQw.js?v=10">
     <link rel="stylesheet" crossorigin href="/assets/index-Cl834OsA.css?v=8">
     <link rel="stylesheet" crossorigin href="/assets/vendor_modules-9b7WOkhW.css">
     <script type="module">

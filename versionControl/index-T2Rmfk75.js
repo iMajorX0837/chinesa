@@ -50730,10 +50730,6 @@ function xf() {
             const {type: oe, targetValue: te} = le;
             if (oe === "internal") {
                 const {type: ee, info: ie} = te;
-                if (ee === "route" && typeof ie == "string" && ie.startsWith("/")) {
-                    Oe.push(ie);
-                    return
-                }
                 if (ee === "activity") {
                     const Ae = (await o.getActivityList()).find(ne => (ne == null ? void 0 : ne.id) === Number(ie.activityId));
                     if (!Ae) {

@@ -175,6 +175,24 @@ function buildPromoCondition(array $row, $siteBase) {
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
         $targetValue = json_decode($link, true);
+        if (is_array($targetValue) && ($targetValue['type'] ?? '') === 'route' && !empty($targetValue['info'])) {
+            return json_encode([
+                'uuid' => '',
+                'content' => '',
+                'isShowApply' => false,
+                'jumpType' => 'LINK',
+                'target' => ['type' => 'internal', 'targetValue' => ['type' => 'route', 'info' => $targetValue['info']]],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+        if (strpos($link, '/') === 0) {
+            return json_encode([
+                'uuid' => '',
+                'content' => '',
+                'isShowApply' => false,
+                'jumpType' => 'LINK',
+                'target' => ['type' => 'internal', 'targetValue' => ['type' => 'route', 'info' => $link]],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
         if (is_array($targetValue) && !empty($targetValue['type'])) {
             return json_encode([
                 'uuid' => '',

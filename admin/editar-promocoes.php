@@ -36,12 +36,19 @@ function ensure_promocoes_link_column() {
 function parse_promocao_link($link) {
     $link = trim((string)$link);
     if ($link === '') {
-        return ['tipo' => 'detail', 'internal' => '', 'external' => ''];
+        return ['tipo' => 'detail', 'internal' => '', 'custom' => ''];
     }
     if (preg_match('#^https?://#i', $link)) {
-        return ['tipo' => 'external', 'internal' => '', 'external' => $link];
+        return ['tipo' => 'custom', 'internal' => '', 'custom' => $link];
     }
-    return ['tipo' => 'internal', 'internal' => $link, 'external' => ''];
+    $decoded = json_decode($link, true);
+    if (is_array($decoded) && ($decoded['type'] ?? '') === 'route' && !empty($decoded['info'])) {
+        return ['tipo' => 'custom', 'internal' => '', 'custom' => $decoded['info']];
+    }
+    if (strpos($link, '/') === 0) {
+        return ['tipo' => 'custom', 'internal' => '', 'custom' => $link];
+    }
+    return ['tipo' => 'internal', 'internal' => $link, 'custom' => ''];
 }
 
 function promocao_link_label($link, $targetValues) {
@@ -49,8 +56,8 @@ function promocao_link_label($link, $targetValues) {
     if ($parsed['tipo'] === 'detail') {
         return 'Detalhe da promoção';
     }
-    if ($parsed['tipo'] === 'external') {
-        return $parsed['external'];
+    if ($parsed['tipo'] === 'custom') {
+        return $parsed['custom'];
     }
     foreach ($targetValues as $target) {
         if ($target['value'] === $parsed['internal']) {
@@ -116,8 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $titulo = $_POST['titulo'];
     $status = intval($_POST['status']);
     $linkTipo = $_POST['link_tipo'] ?? 'detail';
-    if ($linkTipo === 'external') {
-        $link = trim($_POST['link_external'] ?? '');
+    if ($linkTipo === 'custom') {
+        $custom = trim($_POST['link_custom'] ?? '');
+        if (preg_match('#^https?://#i', $custom)) {
+            $link = $custom;
+        } elseif (strpos($custom, '/') === 0) {
+            $link = json_encode(['type' => 'route', 'info' => $custom], JSON_UNESCAPED_SLASHES);
+        } else {
+            $link = $custom;
+        }
     } elseif ($linkTipo === 'internal') {
         $link = trim($_POST['link_internal'] ?? '');
     } else {
@@ -255,7 +269,7 @@ $promocoes = get_promocoes();
                                                                     <select class="form-select promo-link-tipo" name="link_tipo" id="link_tipo_<?= $promocao['id']; ?>" data-promo-id="<?= $promocao['id']; ?>">
                                                                         <option value="detail" <?= $linkParsed['tipo'] === 'detail' ? 'selected' : ''; ?>>Abrir detalhe da promoção</option>
                                                                         <option value="internal" <?= $linkParsed['tipo'] === 'internal' ? 'selected' : ''; ?>>Página interna do site</option>
-                                                                        <option value="external" <?= $linkParsed['tipo'] === 'external' ? 'selected' : ''; ?>>Link externo (URL)</option>
+                                                                        <option value="custom" <?= $linkParsed['tipo'] === 'custom' ? 'selected' : ''; ?>>Link / rota personalizada</option>
                                                                     </select>
                                                                 </div>
                                                                 <div class="mb-3 promo-link-internal" id="link_internal_wrap_<?= $promocao['id']; ?>" style="<?= $linkParsed['tipo'] === 'internal' ? '' : 'display:none;'; ?>">
@@ -266,10 +280,10 @@ $promocoes = get_promocoes();
                                                                         <?php endforeach; ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="mb-3 promo-link-external" id="link_external_wrap_<?= $promocao['id']; ?>" style="<?= $linkParsed['tipo'] === 'external' ? '' : 'display:none;'; ?>">
-                                                                    <label for="link_external_<?= $promocao['id']; ?>" class="form-label">URL de redirecionamento</label>
-                                                                    <input type="url" class="form-control" name="link_external" id="link_external_<?= $promocao['id']; ?>" value="<?= htmlspecialchars($linkParsed['external']); ?>" placeholder="https://exemplo.com/pagina">
-                                                                    <small class="text-muted">Use um link completo começando com https://</small>
+                                                                <div class="mb-3 promo-link-custom" id="link_custom_wrap_<?= $promocao['id']; ?>" style="<?= $linkParsed['tipo'] === 'custom' ? '' : 'display:none;'; ?>">
+                                                                    <label for="link_custom_<?= $promocao['id']; ?>" class="form-label">Link de redirecionamento</label>
+                                                                    <input type="text" class="form-control" name="link_custom" id="link_custom_<?= $promocao['id']; ?>" value="<?= htmlspecialchars($linkParsed['custom']); ?>" placeholder="/activity/SignIn/1887@style_2">
+                                                                    <small class="text-muted">Rota interna (ex: /activity/SignIn/1887@style_2) navega dentro do site. URL externa (https://...) abre em nova aba.</small>
                                                                 </div>
                                                                 <div class="mb-3">
                                                                     <label for="status" class="form-label">Status</label>
@@ -311,9 +325,9 @@ $promocoes = get_promocoes();
             const promoId = selectEl.dataset.promoId;
             const tipo = selectEl.value;
             const internalWrap = document.getElementById('link_internal_wrap_' + promoId);
-            const externalWrap = document.getElementById('link_external_wrap_' + promoId);
+            const customWrap = document.getElementById('link_custom_wrap_' + promoId);
             if (internalWrap) internalWrap.style.display = tipo === 'internal' ? '' : 'none';
-            if (externalWrap) externalWrap.style.display = tipo === 'external' ? '' : 'none';
+            if (customWrap) customWrap.style.display = tipo === 'custom' ? '' : 'none';
         }
 
         document.querySelectorAll('.promo-link-tipo').forEach(function(selectEl) {

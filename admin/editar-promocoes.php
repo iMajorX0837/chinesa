@@ -25,6 +25,57 @@ if ($_SESSION['data_adm']['status'] != '1') {
     exit();
 }
 
+function ensure_promocoes_link_column() {
+    global $mysqli;
+    $check = $mysqli->query("SHOW COLUMNS FROM promocoes LIKE 'link'");
+    if ($check && $check->num_rows === 0) {
+        $mysqli->query("ALTER TABLE promocoes ADD COLUMN link VARCHAR(500) NULL DEFAULT NULL AFTER status");
+    }
+}
+
+function parse_promocao_link($link) {
+    $link = trim((string)$link);
+    if ($link === '') {
+        return ['tipo' => 'detail', 'internal' => '', 'external' => ''];
+    }
+    if (preg_match('#^https?://#i', $link)) {
+        return ['tipo' => 'external', 'internal' => '', 'external' => $link];
+    }
+    return ['tipo' => 'internal', 'internal' => $link, 'external' => ''];
+}
+
+function promocao_link_label($link, $targetValues) {
+    $parsed = parse_promocao_link($link);
+    if ($parsed['tipo'] === 'detail') {
+        return 'Detalhe da promoção';
+    }
+    if ($parsed['tipo'] === 'external') {
+        return $parsed['external'];
+    }
+    foreach ($targetValues as $target) {
+        if ($target['value'] === $parsed['internal']) {
+            return $target['label'];
+        }
+    }
+    return 'Página interna';
+}
+
+ensure_promocoes_link_column();
+
+$targetValues = [
+    'recharge' => ['label' => 'Recarga', 'value' => '{"type":"recharge","info":"string"}'],
+    'withdraw' => ['label' => 'Retirada', 'value' => '{"type":"withdraw","info":"string"}'],
+    'agency' => ['label' => 'Convite (Agency)', 'value' => '{"type":"activity","info":{"activityName":"推荐好友领彩金","activityId":263}}'],
+    'vip' => ['label' => 'VIP', 'value' => '{"type":"vip","info":"string"}'],
+    'promotion' => ['label' => 'Comissão (Promotion)', 'value' => '{"type":"promotion","info":"string"}'],
+    'activity_list' => ['label' => 'Lista de Promoções', 'value' => '{"type":"activity_list","info":"string"}'],
+    'mystery' => ['label' => 'Bônus Mistério', 'value' => '{"type":"activity","info":{"activityName":"神秘彩金活动","activityId":268}}'],
+    'signin' => ['label' => 'Login Diário (Sign In)', 'value' => '{"type":"activity","info":{"activityName":"签到奖励","activityId":264}}'],
+    'redeem' => ['label' => 'Código de Resgate', 'value' => '{"type":"redeem_code","info":"string"}'],
+    'rebate' => ['label' => 'Rebate (Realtime)', 'value' => '{"type":"activity","info":{"activityName":"实时返水","activityId":494}}'],
+    'home' => ['label' => 'Início', 'value' => '{"type":"home","info":"string"}'],
+];
+
 # Função para buscar as promoções
 function get_promocoes() {
     global $mysqli;
@@ -40,16 +91,16 @@ function get_promocoes() {
 }
 
 # Função para atualizar a promoção
-function update_promocao($id, $titulo, $status, $img = null) {
+function update_promocao($id, $titulo, $status, $link, $img = null) {
     global $mysqli;
 
     try {
         if ($img) {
-            $qry = $mysqli->prepare("UPDATE promocoes SET titulo = ?, status = ?, img = ? WHERE id = ?");
-            $qry->bind_param("sisi", $titulo, $status, $img, $id);
+            $qry = $mysqli->prepare("UPDATE promocoes SET titulo = ?, status = ?, link = ?, img = ? WHERE id = ?");
+            $qry->bind_param("sissi", $titulo, $status, $link, $img, $id);
         } else {
-            $qry = $mysqli->prepare("UPDATE promocoes SET titulo = ?, status = ? WHERE id = ?");
-            $qry->bind_param("sii", $titulo, $status, $id);
+            $qry = $mysqli->prepare("UPDATE promocoes SET titulo = ?, status = ?, link = ? WHERE id = ?");
+            $qry->bind_param("sisi", $titulo, $status, $link, $id);
         }
 
         return $qry->execute();
@@ -64,6 +115,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $id = intval($_POST['id']);
     $titulo = $_POST['titulo'];
     $status = intval($_POST['status']);
+    $linkTipo = $_POST['link_tipo'] ?? 'detail';
+    if ($linkTipo === 'external') {
+        $link = trim($_POST['link_external'] ?? '');
+    } elseif ($linkTipo === 'internal') {
+        $link = trim($_POST['link_internal'] ?? '');
+    } else {
+        $link = '';
+    }
 
     # Buscar a imagem atual no banco de dados
     $query = "SELECT img FROM promocoes WHERE id = ?";
@@ -105,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     # Atualizar a promoção no banco de dados
-    if (update_promocao($id, $titulo, $status, $img)) {
+    if (update_promocao($id, $titulo, $status, $link, $img)) {
         $toastType = 'success';
         $toastMessage = 'Promoção atualizada com sucesso!';
     } else {
@@ -151,16 +210,19 @@ $promocoes = get_promocoes();
                                             <th>ID</th>
                                             <th>Título</th>
                                             <th>Imagem</th>
+                                            <th>Redirecionamento</th>
                                             <th>Status</th>
                                             <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($promocoes as $promocao): ?>
+                                            <?php $linkParsed = parse_promocao_link($promocao['link'] ?? ''); ?>
                                             <tr>
                                                 <td><?= $promocao['id']; ?></td>
                                                 <td><?= $promocao['titulo']; ?></td>
                                                 <td><img src="<?= (strpos($promocao['img'], '/uploads/') === 0 ? '' : '/uploads/') . $promocao['img']; ?>?v=<?= time(); ?>" alt="Promoção" width="100"></td>
+                                                <td><small><?= htmlspecialchars(promocao_link_label($promocao['link'] ?? '', $targetValues)); ?></small></td>
                                                 <td><?= $promocao['status'] == 1 ? 'Ativo' : 'Inativo'; ?></td>
                                                 <td>
                                                     <button class="btn btn-primary" data-bs-toggle="modal"
@@ -187,6 +249,27 @@ $promocoes = get_promocoes();
                                                                     <label for="img" class="form-label">Imagem</label>
                                                                     <input type="file" class="form-control" name="img">
                                                                     <small class="text-muted">Deixe em branco se não quiser alterar a imagem.</small>
+                                                                </div>
+                                                                <div class="mb-3">
+                                                                    <label for="link_tipo_<?= $promocao['id']; ?>" class="form-label">Redirecionamento ao clicar</label>
+                                                                    <select class="form-select promo-link-tipo" name="link_tipo" id="link_tipo_<?= $promocao['id']; ?>" data-promo-id="<?= $promocao['id']; ?>">
+                                                                        <option value="detail" <?= $linkParsed['tipo'] === 'detail' ? 'selected' : ''; ?>>Abrir detalhe da promoção</option>
+                                                                        <option value="internal" <?= $linkParsed['tipo'] === 'internal' ? 'selected' : ''; ?>>Página interna do site</option>
+                                                                        <option value="external" <?= $linkParsed['tipo'] === 'external' ? 'selected' : ''; ?>>Link externo (URL)</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="mb-3 promo-link-internal" id="link_internal_wrap_<?= $promocao['id']; ?>" style="<?= $linkParsed['tipo'] === 'internal' ? '' : 'display:none;'; ?>">
+                                                                    <label for="link_internal_<?= $promocao['id']; ?>" class="form-label">Página interna</label>
+                                                                    <select class="form-select" name="link_internal" id="link_internal_<?= $promocao['id']; ?>">
+                                                                        <?php foreach ($targetValues as $target): ?>
+                                                                            <option value='<?= htmlspecialchars($target['value'], ENT_QUOTES); ?>' <?= $linkParsed['internal'] === $target['value'] ? 'selected' : ''; ?>><?= htmlspecialchars($target['label']); ?></option>
+                                                                        <?php endforeach; ?>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="mb-3 promo-link-external" id="link_external_wrap_<?= $promocao['id']; ?>" style="<?= $linkParsed['tipo'] === 'external' ? '' : 'display:none;'; ?>">
+                                                                    <label for="link_external_<?= $promocao['id']; ?>" class="form-label">URL de redirecionamento</label>
+                                                                    <input type="url" class="form-control" name="link_external" id="link_external_<?= $promocao['id']; ?>" value="<?= htmlspecialchars($linkParsed['external']); ?>" placeholder="https://exemplo.com/pagina">
+                                                                    <small class="text-muted">Use um link completo começando com https://</small>
                                                                 </div>
                                                                 <div class="mb-3">
                                                                     <label for="status" class="form-label">Status</label>
@@ -223,6 +306,21 @@ $promocoes = get_promocoes();
 
     <script>
         function showToast(type, message){window.showToast(type,message);}
+
+        function togglePromoLinkFields(selectEl) {
+            const promoId = selectEl.dataset.promoId;
+            const tipo = selectEl.value;
+            const internalWrap = document.getElementById('link_internal_wrap_' + promoId);
+            const externalWrap = document.getElementById('link_external_wrap_' + promoId);
+            if (internalWrap) internalWrap.style.display = tipo === 'internal' ? '' : 'none';
+            if (externalWrap) externalWrap.style.display = tipo === 'external' ? '' : 'none';
+        }
+
+        document.querySelectorAll('.promo-link-tipo').forEach(function(selectEl) {
+            selectEl.addEventListener('change', function() {
+                togglePromoLinkFields(selectEl);
+            });
+        });
 
         // Mostrar Toast com base no resultado do PHP
         <?php if (isset($toastType) && isset($toastMessage)): ?>

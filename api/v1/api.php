@@ -162,6 +162,38 @@ if ($promoContentPath === '/api/v1/promo-content' || preg_match('#/promo-content
     echo $promoText;
     exit;
 }
+function buildPromoCondition(array $row, $siteBase) {
+    $link = trim((string)($row['link'] ?? ''));
+    if ($link !== '') {
+        if (preg_match('#^https?://#i', $link)) {
+            return json_encode([
+                'uuid' => '',
+                'content' => '',
+                'isShowApply' => false,
+                'jumpType' => 'LINK',
+                'target' => ['type' => 'external', 'targetValue' => $link],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+        $targetValue = json_decode($link, true);
+        if (is_array($targetValue) && !empty($targetValue['type'])) {
+            return json_encode([
+                'uuid' => '',
+                'content' => '',
+                'isShowApply' => false,
+                'jumpType' => 'LINK',
+                'target' => ['type' => 'internal', 'targetValue' => $targetValue],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+    }
+    $promoContentUrl = rtrim((string)$siteBase, '/') . '/api/v1/promo-content?id=' . (int)$row['id'];
+    return json_encode([
+        'uuid' => '',
+        'content' => $promoContentUrl,
+        'isShowApply' => false,
+        'jumpType' => 'DETAIL',
+        'target' => ['type' => 'external', 'targetValue' => ''],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
 function guessImageMimeFromBytes($bytes, $url = '') {
     if (strncmp($bytes, "\x89PNG", 4) === 0) return 'image/png';
     if (strncmp($bytes, "\xFF\xD8\xFF", 3) === 0) return 'image/jpeg';
@@ -2524,7 +2556,7 @@ if ($path === '/api/frontend/trpc/registerReward.receive') {
 if ($path === '/api/frontend/trpc/activity.list' || $path === '/api/frontend/trpc/activity.listPublic') {
     $rotaEncontrada = true;
     $dbPromos = [];
-    $stmt = $mysqli->prepare("SELECT id, titulo, img, status FROM promocoes");
+    $stmt = $mysqli->prepare("SELECT id, titulo, img, status, link FROM promocoes");
     if ($stmt) {
         $stmt->execute();
         $result = $stmt->get_result();
@@ -2853,14 +2885,7 @@ if ($path === '/api/frontend/trpc/activity.list' || $path === '/api/frontend/trp
             if (!empty($imgUrl) && strpos($imgUrl, 'http') !== 0) {
                 $imgUrl = $WG_BUCKET_SITE . '/uploads/' . $imgUrl;
             }
-            $promoContentUrl = $WG_BUCKET_SITE . '/api/v1/promo-content?id=' . (int)$row['id'];
-            $promoCondition = json_encode([
-                'uuid' => '',
-                'content' => $promoContentUrl,
-                'isShowApply' => false,
-                'jumpType' => 'DETAIL',
-                'target' => ['type' => 'external', 'targetValue' => ''],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $promoCondition = buildPromoCondition($row, $WG_BUCKET_SITE);
             $finalList[] = [
                 'id' => $row['id'],
                 'name' => $row['titulo'],

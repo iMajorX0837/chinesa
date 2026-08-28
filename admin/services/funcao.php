@@ -27,9 +27,79 @@ function host_eh_local($host)
     return $host === '' || $host === 'localhost' || $host === '127.0.0.1' || $host === '::1';
 }
 
+function ensure_facebookads_pixels_column()
+{
+    global $mysqli;
+
+    $check = $mysqli->query("SHOW COLUMNS FROM config LIKE 'facebookads2'");
+    if ($check && $check->num_rows === 0) {
+        $mysqli->query("ALTER TABLE config ADD facebookads2 VARCHAR(64) DEFAULT NULL AFTER facebookads");
+    }
+
+    $check = $mysqli->query("SHOW COLUMNS FROM config LIKE 'facebookads_pixels'");
+    if ($check && $check->num_rows === 0) {
+        $mysqli->query("ALTER TABLE config ADD facebookads_pixels TEXT DEFAULT NULL AFTER facebookads2");
+    }
+}
+
+function normalize_facebook_pixel_ids($ids)
+{
+    if (!is_array($ids)) {
+        $ids = [$ids];
+    }
+
+    $normalized = [];
+    foreach ($ids as $id) {
+        $id = trim((string)$id);
+        if ($id !== '') {
+            $normalized[] = $id;
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+function get_facebook_pixels_from_config(array $config)
+{
+    $json = trim((string)($config['facebookads_pixels'] ?? ''));
+    if ($json !== '') {
+        $decoded = json_decode($json, true);
+        if (is_array($decoded)) {
+            return normalize_facebook_pixel_ids($decoded);
+        }
+    }
+
+    return normalize_facebook_pixel_ids([
+        $config['facebookads'] ?? '',
+        $config['facebookads2'] ?? '',
+    ]);
+}
+
+function save_facebook_pixels_to_config(array $pixels)
+{
+    global $mysqli;
+
+    ensure_facebookads_pixels_column();
+
+    $pixels = normalize_facebook_pixel_ids($pixels);
+    $json = json_encode($pixels, JSON_UNESCAPED_UNICODE);
+    $first = $pixels[0] ?? '';
+    $second = $pixels[1] ?? '';
+
+    $qry = $mysqli->prepare("UPDATE config SET facebookads_pixels = ?, facebookads = ?, facebookads2 = ? WHERE id = 1");
+    $qry->bind_param('sss', $json, $first, $second);
+    return $qry->execute();
+}
+
 function url_sistema()
 {
     global $pasta_url, $mysqli;
+
+    $httpHost = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($httpHost !== '' && host_eh_local($httpHost)) {
+        $protocol = pega_http_https();
+        return rtrim($protocol . '://' . filter_var($httpHost, FILTER_SANITIZE_URL) . $pasta_url, '/');
+    }
 
     $candidates = [];
 

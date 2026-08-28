@@ -167,10 +167,7 @@ $assetVersion = time();
     <title><?= htmlspecialchars($config['nome']) ?></title>
 
     <?php
-    $fbPixels = array_values(array_unique(array_filter([
-        trim($config['facebookads'] ?? ''),
-        trim($config['facebookads2'] ?? ''),
-    ])));
+    $fbPixels = get_facebook_pixels_from_config($config);
     ?>
     <?php if (!empty($fbPixels)): ?>
     <!-- Facebook Pixel Code -->

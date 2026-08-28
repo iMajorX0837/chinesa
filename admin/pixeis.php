@@ -25,55 +25,42 @@ if ($_SESSION['data_adm']['status'] != '1') {
     exit();
 }
 
-function ensure_facebookads2_column()
-{
-    global $mysqli;
-    $check = $mysqli->query("SHOW COLUMNS FROM config LIKE 'facebookads2'");
-    if ($check && $check->num_rows === 0) {
-        $mysqli->query("ALTER TABLE config ADD facebookads2 VARCHAR(64) DEFAULT NULL AFTER facebookads");
-    }
-}
-
-# Função para buscar os dados atuais da tabela afiliados_config
+# Função para buscar os dados atuais da tabela config
 function get_afiliados_config()
 {
     global $mysqli;
-    ensure_facebookads2_column();
+    ensure_facebookads_pixels_column();
     $qry = "SELECT * FROM config WHERE id=1";
     $result = mysqli_query($mysqli, $qry);
     return mysqli_fetch_assoc($result);
 }
 
-# Função para atualizar os dados da tabela afiliados_config
+# Função para atualizar os dados da tabela config
 function update_config($data)
 {
     global $mysqli;
-    ensure_facebookads2_column();
-    $qry = $mysqli->prepare("UPDATE config SET 
-        facebookads = ?, 
-        facebookads2 = ?,
-        googleAnalytics = ?
-        WHERE id = 1");
 
-    $qry->bind_param(
-        "sss",
-        $data['facebookads'],
-        $data['facebookads2'],
-        $data['googleads'],
-    );
-    return $qry->execute();
+    $qry = $mysqli->prepare("UPDATE config SET googleAnalytics = ? WHERE id = 1");
+    $qry->bind_param("s", $data['googleads']);
+    if (!$qry->execute()) {
+        return false;
+    }
+
+    return save_facebook_pixels_to_config($data['facebook_pixels']);
 }
 
 # Se o formulário for enviado, atualizar os dados
-$toastType = null; // Variável para definir o tipo de Toast
-$toastMessage = ''; // Variável para definir a mensagem do Toast
+$toastType = null;
+$toastMessage = '';
 
-# Se o formulário for enviado, atualizar os dados
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $facebookPixels = isset($_POST['facebookads_pixels']) && is_array($_POST['facebookads_pixels'])
+        ? $_POST['facebookads_pixels']
+        : [];
+
     $data = [
-        'googleads' => $_POST['googleads'],  // Texto, não usar floatval
-        'facebookads' => trim($_POST['facebookads']),  // Texto, não usar floatval
-        'facebookads2' => trim($_POST['facebookads2']),
+        'googleads' => $_POST['googleads'],
+        'facebook_pixels' => $facebookPixels,
     ];
 
     if (update_config($data)) {
@@ -85,9 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-
 # Buscar os dados atuais
 $config = get_afiliados_config();
+$fbPixels = get_facebook_pixels_from_config($config);
+if (empty($fbPixels)) {
+    $fbPixels = [''];
+}
 ?>
 
 <head>
@@ -118,7 +108,6 @@ $config = get_afiliados_config();
                             <div class="card-body">
                                 <form method="POST" action="">
                                     <div class="row">
-                                        <!-- Nome -->
                                         <div class="col-md-6">
                                             <div class="card mb-4">
                                                 <div class="card-body">
@@ -129,39 +118,43 @@ $config = get_afiliados_config();
                                                         Coloque apenas o ID do trackeamento GoogleADS.
                                                     </p>
                                                     <input type="text" name="googleads" class="form-control"
-                                                        value="<?= $config['googleAnalytics'] ?>" required>
+                                                        value="<?= htmlspecialchars($config['googleAnalytics'] ?? '', ENT_QUOTES) ?>" required>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- Facebook Pixel 1 -->
-                                        <div class="col-md-6">
+                                        <div class="col-md-12">
                                             <div class="card mb-4">
                                                 <div class="card-body">
-                                                    <h5 class="card-title">
-                                                        <i class="iconoir-group"></i> Facebook ADS (Pixel 1)
-                                                    </h5>
-                                                    <p class="card-subtitle text-muted mb-2">
-                                                        Coloque apenas o ID do trackeamento FacebookADS.
-                                                    </p>
-                                                    <input type="text" name="facebookads" class="form-control"
-                                                        value="<?= htmlspecialchars($config['facebookads'] ?? '', ENT_QUOTES) ?>">
-                                                </div>
-                                            </div>
-                                        </div>
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <div>
+                                                            <h5 class="card-title mb-1">
+                                                                <i class="iconoir-group"></i> Facebook ADS (Pixels)
+                                                            </h5>
+                                                            <p class="card-subtitle text-muted mb-0">
+                                                                Adicione quantos pixels do Facebook quiser. Informe apenas o ID de cada pixel.
+                                                            </p>
+                                                        </div>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-add-facebook-pixel">
+                                                            + Adicionar pixel
+                                                        </button>
+                                                    </div>
 
-                                        <!-- Facebook Pixel 2 -->
-                                        <div class="col-md-6">
-                                            <div class="card mb-4">
-                                                <div class="card-body">
-                                                    <h5 class="card-title">
-                                                        <i class="iconoir-group"></i> Facebook ADS (Pixel 2)
-                                                    </h5>
-                                                    <p class="card-subtitle text-muted mb-2">
-                                                        Segundo pixel opcional. Deixe em branco se não usar.
-                                                    </p>
-                                                    <input type="text" name="facebookads2" class="form-control"
-                                                        value="<?= htmlspecialchars($config['facebookads2'] ?? '', ENT_QUOTES) ?>">
+                                                    <div id="facebook-pixels-list">
+                                                        <?php foreach ($fbPixels as $index => $pixelId): ?>
+                                                            <div class="input-group mb-2 facebook-pixel-row">
+                                                                <span class="input-group-text pixel-index">#<?= $index + 1 ?></span>
+                                                                <input type="text"
+                                                                    name="facebookads_pixels[]"
+                                                                    class="form-control"
+                                                                    value="<?= htmlspecialchars($pixelId, ENT_QUOTES) ?>"
+                                                                    placeholder="Ex: 123456789012345">
+                                                                <button type="button" class="btn btn-outline-danger btn-remove-pixel" title="Remover pixel">
+                                                                    &times;
+                                                                </button>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -190,8 +183,46 @@ $config = get_afiliados_config();
     <?php include 'partials/vendorjs.php' ?>
     <script src="assets/js/app.js"></script>
 
-    <!-- Função de Toast -->
     <script>
+        function renumberFacebookPixels() {
+            document.querySelectorAll('#facebook-pixels-list .facebook-pixel-row').forEach(function (row, index) {
+                var label = row.querySelector('.pixel-index');
+                if (label) {
+                    label.textContent = '#' + (index + 1);
+                }
+            });
+        }
+
+        function bindRemovePixelButtons() {
+            document.querySelectorAll('.btn-remove-pixel').forEach(function (button) {
+                button.onclick = function () {
+                    var rows = document.querySelectorAll('#facebook-pixels-list .facebook-pixel-row');
+                    if (rows.length <= 1) {
+                        rows[0].querySelector('input').value = '';
+                        return;
+                    }
+                    button.closest('.facebook-pixel-row').remove();
+                    renumberFacebookPixels();
+                };
+            });
+        }
+
+        document.getElementById('btn-add-facebook-pixel').addEventListener('click', function () {
+            var list = document.getElementById('facebook-pixels-list');
+            var row = document.createElement('div');
+            row.className = 'input-group mb-2 facebook-pixel-row';
+            row.innerHTML = `
+                <span class="input-group-text pixel-index"></span>
+                <input type="text" name="facebookads_pixels[]" class="form-control" placeholder="Ex: 123456789012345">
+                <button type="button" class="btn btn-outline-danger btn-remove-pixel" title="Remover pixel">&times;</button>
+            `;
+            list.appendChild(row);
+            renumberFacebookPixels();
+            bindRemovePixelButtons();
+        });
+
+        bindRemovePixelButtons();
+
         function showToast(type, message) {
             var toastPlacement = document.getElementById('toastPlacement');
             var toast = document.createElement('div');
@@ -201,7 +232,6 @@ $config = get_afiliados_config();
             toast.setAttribute('aria-atomic', 'true');
             toast.innerHTML = `
                 <div class="toast-header">
-                    
                     <h5 class="me-auto my-0">Atualização</h5>
                     <small>Agora</small>
                     <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
@@ -220,7 +250,6 @@ $config = get_afiliados_config();
         }
     </script>
 
-    <!-- Exibir o Toast baseado nas ações do formulário -->
     <?php if ($toastType && $toastMessage): ?>
         <script>
             showToast('<?= $toastType ?>', '<?= $toastMessage ?>');

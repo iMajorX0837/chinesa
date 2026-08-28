@@ -12,7 +12,7 @@ Variáveis de ambiente (opcionais):
   DRAKON_URL           - default https://91b99.com/callback/drakon.php
   CASA_URL             - default https://91b99.com/
   POLL_INTERVAL        - segundos entre polls (default 5)
-  STATE_FILE           - arquivo de estado (offset + IDs já enviados)
+  STATE_FILE           - arquivo de estado (IDs já enviados nesta sessão)
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def load_state() -> dict:
             return json.loads(STATE_FILE.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
-    return {"offset": 0, "sent_ids": [], "tx_user_map": {}}
+    return {"sent_ids": [], "tx_user_map": {}}
 
 
 def save_state(state: dict) -> None:
@@ -74,22 +74,38 @@ def fetch_log_tail(offset: int) -> tuple[str, int]:
     resp = SESSION.get(ERRORLOG_URL, headers=headers, timeout=30)
 
     if resp.status_code == 416:
-        return "", offset
+        return _reset_offset_after_shrink()
 
     if resp.status_code == 206:
         new_offset = offset + len(resp.content)
         return resp.content.decode("utf-8", errors="replace"), new_offset
 
     if resp.status_code == 200:
+        file_size = len(resp.content)
         if offset == 0:
-            return resp.text, len(resp.content)
-        if len(resp.content) <= offset:
-            return "", offset
+            return resp.text, file_size
+        if file_size <= offset:
+            print(
+                f"[AVISO] Log encolheu ou foi rotacionado "
+                f"({file_size} bytes < offset {offset}); monitorando só linhas novas."
+            )
+            return "", file_size
         chunk = resp.content[offset:].decode("utf-8", errors="replace")
-        return chunk, len(resp.content)
+        return chunk, file_size
 
     resp.raise_for_status()
     return "", offset
+
+
+def _reset_offset_after_shrink() -> tuple[str, int]:
+    resp = SESSION.get(ERRORLOG_URL, timeout=30)
+    resp.raise_for_status()
+    file_size = len(resp.content)
+    print(
+        f"[AVISO] Offset inválido (log rotacionado?); "
+        f"monitorando só linhas novas a partir de {file_size} bytes."
+    )
+    return "", file_size
 
 
 def parse_insert_payments(chunk: str, tx_user_map: dict) -> None:
@@ -171,6 +187,8 @@ def process_chunk(chunk: str, state: dict) -> int:
         try:
             send_discord_embed(telefone, valor, tx_id)
             sent_ids.add(tx_id)
+            state["sent_ids"] = list(sent_ids)
+            save_state(state)
             sent_count += 1
             print(f"[OK] Discord: {telefone} | R$ {valor} | TX {tx_id}")
         except requests.RequestException as exc:
@@ -180,13 +198,10 @@ def process_chunk(chunk: str, state: dict) -> int:
     return sent_count
 
 
-def bootstrap_offset() -> int:
+def current_log_size() -> int:
     try:
-        resp = SESSION.get(ERRORLOG_URL, stream=True, timeout=30)
+        resp = SESSION.get(ERRORLOG_URL, timeout=30)
         resp.raise_for_status()
-        total = int(resp.headers.get("Content-Length") or 0)
-        if total > 0:
-            return total
         return len(resp.content)
     except requests.RequestException as exc:
         print(f"[ERRO] Não foi possível obter tamanho do log: {exc}", file=sys.stderr)
@@ -199,23 +214,24 @@ def main() -> None:
         sys.exit(1)
 
     state = load_state()
-    offset = int(state.get("offset", 0))
+    state["tx_user_map"] = {}
 
-    if offset == 0 and not state.get("sent_ids"):
-        offset = bootstrap_offset()
-        state["offset"] = offset
-        save_state(state)
-        print(f"[INIT] Monitorando novos depósitos a partir do byte {offset}")
+    offset = current_log_size()
+    if offset == 0:
+        print("[ERRO] Log vazio ou inacessível.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"[INIT] Monitorando só depósitos novos a partir de agora (byte {offset})")
 
     while True:
         try:
             print(f"[RUN] Poll a cada {POLL_INTERVAL}s | log={ERRORLOG_URL}")
             chunk, new_offset = fetch_log_tail(offset)
+            offset = new_offset
             if chunk:
-                process_chunk(chunk, state)
-                offset = new_offset
-                state["offset"] = offset
-                save_state(state)
+                sent = process_chunk(chunk, state)
+                if sent:
+                    print(f"[RUN] {sent} depósito(s) enviado(s) ao Discord.")
             else:
                 print("[RUN] Nenhuma linha nova no log.")
         except KeyboardInterrupt:

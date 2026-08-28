@@ -162,6 +162,62 @@ if ($promoContentPath === '/api/v1/promo-content' || preg_match('#/promo-content
     echo $promoText;
     exit;
 }
+function resolveInternalTargetValue($input)
+{
+    if (is_array($input)) {
+        $type = trim((string)($input['type'] ?? ''));
+        if ($type !== '' && $type !== 'route') {
+            return $input;
+        }
+        $path = trim((string)($input['info'] ?? ''));
+    } else {
+        $path = trim((string)$input);
+        if ($path === '') {
+            return null;
+        }
+        if ($path[0] !== '/') {
+            $decoded = json_decode($path, true);
+            if (is_array($decoded)) {
+                return resolveInternalTargetValue($decoded);
+            }
+            return null;
+        }
+    }
+
+    if ($path === '') {
+        return ['type' => 'home', 'info' => 'string'];
+    }
+
+    $routeMap = [
+        '/spread' => ['type' => 'promotion', 'info' => 'string'],
+        '/mlmAgent' => ['type' => 'promotion', 'info' => 'string'],
+        '/main/promo' => ['type' => 'activity_list', 'info' => 'string'],
+        '/main/entrar' => ['type' => 'recharge', 'info' => 'string'],
+        '/recharge/apply' => ['type' => 'recharge', 'info' => 'string'],
+        '/main/withdraw' => ['type' => 'withdraw', 'info' => 'string'],
+        '/withdraw/apply' => ['type' => 'withdraw', 'info' => 'string'],
+        '/activity/vip' => ['type' => 'vip', 'info' => 'string'],
+        '/Redeem' => ['type' => 'redeem_code', 'info' => 'string'],
+        '/' => ['type' => 'home', 'info' => 'string'],
+    ];
+
+    if (isset($routeMap[$path])) {
+        return $routeMap[$path];
+    }
+
+    if (preg_match('#^/activity/[^/]+/(\d+)(?:@.+)?$#', $path, $matches)) {
+        return [
+            'type' => 'activity',
+            'info' => [
+                'activityId' => (int)$matches[1],
+                'activityName' => '',
+            ],
+        ];
+    }
+
+    return ['type' => 'route', 'info' => $path];
+}
+
 function buildPromoCondition(array $row, $siteBase) {
     $link = trim((string)($row['link'] ?? ''));
     if ($link !== '') {
@@ -174,26 +230,16 @@ function buildPromoCondition(array $row, $siteBase) {
                 'target' => ['type' => 'external', 'targetValue' => $link],
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
-        $targetValue = json_decode($link, true);
-        if (is_array($targetValue) && ($targetValue['type'] ?? '') === 'route' && !empty($targetValue['info'])) {
-            return json_encode([
-                'uuid' => '',
-                'content' => '',
-                'isShowApply' => false,
-                'jumpType' => 'LINK',
-                'target' => ['type' => 'internal', 'targetValue' => ['type' => 'route', 'info' => $targetValue['info']]],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $targetValue = resolveInternalTargetValue($link);
+        if ($targetValue === null) {
+            $decoded = json_decode($link, true);
+            if (is_array($decoded)) {
+                $targetValue = resolveInternalTargetValue($decoded);
+            }
         }
-        if (strpos($link, '/') === 0) {
-            return json_encode([
-                'uuid' => '',
-                'content' => '',
-                'isShowApply' => false,
-                'jumpType' => 'LINK',
-                'target' => ['type' => 'internal', 'targetValue' => ['type' => 'route', 'info' => $link]],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        }
-        if (is_array($targetValue) && !empty($targetValue['type'])) {
+
+        if (is_array($targetValue)) {
             return json_encode([
                 'uuid' => '',
                 'content' => '',

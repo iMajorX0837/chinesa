@@ -331,6 +331,27 @@ $manipulacaoConfig = get_manipulacao_indicacoes();
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- Pagar Baús -->
+                                        <div class="col-md-4">
+                                            <div class="card mb-4 border-success">
+                                                <div class="card-body">
+                                                    <h5 class="card-title text-success">
+                                                        <i class="iconoir-gift"></i> <?= admin_t('chests_pay_chests_title') ?>
+                                                    </h5>
+                                                    <p class="card-subtitle text-muted mb-2">
+                                                        <?= admin_t('chests_pay_chests_subtitle') ?>
+                                                    </p>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="pagar_baus" name="pagar_baus" <?= (int)($afiliadosConfig['pagar_baus'] ?? 1) === 1 ? 'checked' : '' ?>>
+                                                        <label class="form-check-label" for="pagar_baus"><?= admin_t('chests_pay_chests_toggle') ?></label>
+                                                    </div>
+                                                    <small class="text-muted mt-2 d-block">
+                                                        <i class="iconoir-info-circle"></i> <?= admin_t('chests_pay_chests_helper') ?>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <hr class="my-4">

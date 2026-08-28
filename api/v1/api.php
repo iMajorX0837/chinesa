@@ -939,7 +939,7 @@ function getBoxList($mysqli, $token) {
         }
         $idsValidos = [];
         foreach ($idsConvidados as $idConvidado) {
-            $qryDeposito = "SELECT SUM(valor) as total_depositado FROM transacoes WHERE usuario = $idConvidado AND status = 'pago'";
+            $qryDeposito = "SELECT SUM(valor) as total_depositado FROM transacoes WHERE usuario = $idConvidado AND tipo = 'deposito' AND status = 'pago'";
             $resDeposito = mysqli_query($mysqli, $qryDeposito);
             $total_depositado = mysqli_fetch_assoc($resDeposito)['total_depositado'] ?? 0;
             $qryAposta = "SELECT SUM(bet_money) as total_apostado FROM historico_play WHERE id_user = $idConvidado AND status_play = '1'";
@@ -970,13 +970,12 @@ function getBoxList($mysqli, $token) {
             $nivel_index = floor(($i - 1) / $baus_por_nivel);
             $money = isset($niveis_bau[$nivel_index]) ? (float) $niveis_bau[$nivel_index] : (float) end($niveis_bau);
             $condition = $i * $pessoas_bau;
-            $is_get = 0;
-            if ($pagar_baus == 0) {
-                $is_get = 0;
-            } elseif (in_array((string)$i, $numsArray)) {
-                $is_get = 2; 
+            if (in_array((string)$i, $numsArray)) {
+                $is_get = 2;
             } elseif ($total_mem_count >= $condition) {
-                $is_get = 1; 
+                $is_get = 1;
+            } else {
+                $is_get = 0;
             }
             $baus[] = [
                 "id" => $i,
@@ -5166,13 +5165,25 @@ if ($path === '/api/frontend/trpc/activity.apply') {
             exit;
         }
     }
-    $config_afiliados_qry = "SELECT minDepForCpa, minResgate FROM afiliados_config WHERE id = 1";
+    $config_afiliados_qry = "SELECT minDepForCpa, minResgate, pagar_baus, dep_on, bet_on FROM afiliados_config WHERE id = 1";
     $config_afiliados_resp = mysqli_query($mysqli, $config_afiliados_qry);
     $min_deposito = 20;
     $min_apostado = 30;
+    $pagar_baus = 1;
     if ($config_afiliados_resp && $row = mysqli_fetch_assoc($config_afiliados_resp)) {
         $min_deposito = $row['minDepForCpa'];
         $min_apostado = $row['minResgate'];
+        $pagar_baus = (int)($row['pagar_baus'] ?? 1);
+        if (($row['dep_on'] ?? 1) == 0) {
+            $min_deposito = 0;
+        }
+        if (($row['bet_on'] ?? 1) == 0) {
+            $min_apostado = 0;
+        }
+    }
+    if ($pagar_baus === 0) {
+        sendTrpcResponse(["status" => false, "message" => "Chest rewards disabled"]);
+        exit;
     }
     $config_qry = "SELECT niveisbau, qntsbaus, pessoasbau FROM config";
     $config_resp = mysqli_query($mysqli, $config_qry);
@@ -5181,41 +5192,39 @@ if ($path === '/api/frontend/trpc/activity.apply') {
     $quantidade_baus = $config['qntsbaus'];
     $pessoas_bau = $config['pessoasbau'];
     $baus_por_nivel = ceil($quantidade_baus / count($niveis_bau));
-    if (!$isAgency && $chestId > $quantidade_baus) {
+    if ($chestId > $quantidade_baus) {
         sendTrpcResponse(["status" => false, "message" => "Chest not available"]);
         exit;
     }
     $nivel_index = floor(($chestId - 1) / $baus_por_nivel);
     $reward = isset($niveis_bau[$nivel_index]) ? (float) $niveis_bau[$nivel_index] : (float) end($niveis_bau);
     $required_referrals = $chestId * $pessoas_bau;
-    if (!$isAgency) {
-        $codigoConvite = $user['invite_code'];
-        $qryConvidados = "SELECT id FROM usuarios WHERE invitation_code = '$codigoConvite'";
-        $resConvidados = mysqli_query($mysqli, $qryConvidados);
-        $validReferrals = 0;
-        while ($row = mysqli_fetch_assoc($resConvidados)) {
-            $idConvidado = $row['id'];
-            $qryDeposito = "SELECT SUM(valor) as total_depositado FROM transacoes WHERE usuario = $idConvidado AND status = 'pago'";
-            $resDeposito = mysqli_query($mysqli, $qryDeposito);
-            $total_depositado = mysqli_fetch_assoc($resDeposito)['total_depositado'] ?? 0;
-            $qryAposta = "SELECT SUM(bet_money) as total_apostado FROM historico_play WHERE id_user = $idConvidado AND status_play = '1'";
-            $resAposta = mysqli_query($mysqli, $qryAposta);
-            $total_apostado = mysqli_fetch_assoc($resAposta)['total_apostado'] ?? 0;
-            if ($total_depositado >= $min_deposito && $total_apostado >= $min_apostado) {
-                $validReferrals++;
-            }
+    $codigoConvite = $user['invite_code'];
+    $qryConvidados = "SELECT id FROM usuarios WHERE invitation_code = '$codigoConvite'";
+    $resConvidados = mysqli_query($mysqli, $qryConvidados);
+    $validReferrals = 0;
+    while ($row = mysqli_fetch_assoc($resConvidados)) {
+        $idConvidado = $row['id'];
+        $qryDeposito = "SELECT SUM(valor) as total_depositado FROM transacoes WHERE usuario = $idConvidado AND tipo = 'deposito' AND status = 'pago'";
+        $resDeposito = mysqli_query($mysqli, $qryDeposito);
+        $total_depositado = mysqli_fetch_assoc($resDeposito)['total_depositado'] ?? 0;
+        $qryAposta = "SELECT SUM(bet_money) as total_apostado FROM historico_play WHERE id_user = $idConvidado AND status_play = '1'";
+        $resAposta = mysqli_query($mysqli, $qryAposta);
+        $total_apostado = mysqli_fetch_assoc($resAposta)['total_apostado'] ?? 0;
+        if ($total_depositado >= $min_deposito && $total_apostado >= $min_apostado) {
+            $validReferrals++;
         }
-        if ($validReferrals < $required_referrals) {
-            sendTrpcResponse(["status" => false, "message" => "Condition not met"]);
-            exit;
-        }
+    }
+    if ($validReferrals < $required_referrals) {
+        sendTrpcResponse(["status" => false, "message" => "Condition not met"]);
+        exit;
     }
     $mysqli->begin_transaction();
     try {
         if ($isAgency) {
-             $checkQry = "SELECT id, status FROM bau WHERE id = '$targetBauId' FOR UPDATE";
+             $checkQry = "SELECT id, status, is_get FROM bau WHERE id = '$targetBauId' FOR UPDATE";
         } else {
-             $checkQry = "SELECT id, status FROM bau WHERE id_user = '{$user['id']}' AND num = '$chestId' FOR UPDATE";
+             $checkQry = "SELECT id, status, is_get FROM bau WHERE id_user = '{$user['id']}' AND num = '$chestId' FOR UPDATE";
         }
         $checkRes = $mysqli->query($checkQry);
         if ($checkRes->num_rows > 0) {

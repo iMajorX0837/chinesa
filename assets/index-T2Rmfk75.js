@@ -492,7 +492,7 @@ const ft = new NS
     register: {
         name: "注册",
         fbq: {
-            event: "CompleteRegistration",
+            event: "",
             dataMapping: {},
             needServer: !1
         },
@@ -726,7 +726,7 @@ const ft = new NS
     initiateCheckout: {
         name: "拉起订单",
         fbq: {
-            event: "InitiateCheckout",
+            event: "",
             dataMapping: {
                 currency: "currency",
                 amount: "value"
@@ -32360,9 +32360,7 @@ function aK() {
     }
     ),
     ft.on("user/start-pay", async t => {
-        Es("addToCart", t),
-        await ln(1e3),
-        Es("initiateCheckout", t)
+        Es("addToCart", t)
     }
     ),
     ft.on("user/play-game", t => {
@@ -32452,6 +32450,8 @@ async function Es(t, a) {
     }
 }
 async function sK(t, a) {
+    if (t === "register" || t === "initiateCheckout")
+        return;
     await Bi(t, a)
 }
 async function oK(t, a) {

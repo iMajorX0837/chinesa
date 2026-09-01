@@ -647,8 +647,8 @@ $assetVersion = time();
             });
         }
     </script>
-    <script type="module" crossorigin src="/assets/index-T2Rmfk75.js?v=9"></script>
-    <link rel="modulepreload" crossorigin href="/assets/index-T2Rmfk75.js?v=9">
+    <script type="module" crossorigin src="/assets/index-T2Rmfk75.js?v=11"></script>
+    <link rel="modulepreload" crossorigin href="/assets/index-T2Rmfk75.js?v=11">
     <link rel="modulepreload" crossorigin href="/assets/vendor_modules-Bo-19cQw.js?v=9">
     <link rel="stylesheet" crossorigin href="/assets/index-Cl834OsA.css?v=8">
     <link rel="stylesheet" crossorigin href="/assets/vendor_modules-9b7WOkhW.css">
